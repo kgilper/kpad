@@ -26,22 +26,35 @@ cargo uninstall kpad
 
 ## Architecture
 
-The editor is in `winpad/` with this structure:
+The editor is in `winpad/src/` with this structure:
 
 - **main.rs**: Entry point and main event loop (render -> read input -> update state)
 - **terminal.rs**: Raw mode + alternate screen setup via RAII (`TerminalGuard`)
-- **types.rs**: Core types: `Pos` (cursor position), `Snapshot`, `LineEnding`, `EditOperation`, `UndoEntry`
-- **buffer.rs**: Document model (`Vec<String>` of lines) with editing primitives (insert/delete/range operations)
-- **editor.rs**: Application state, key handling, rendering, prompts, undo/redo - the main "app" struct
+- **types.rs**: Core types: `Pos`, `LineEnding`, `EditOperation`, `UndoEntry`, `Prompt`
+- **buffer.rs**: Document model (`Vec<String>` of lines) with editing primitives
 - **commands.rs**: `CommandRegistry` for built-in and plugin commands with keymap resolution
-- **plugins.rs**: `PluginManager` loads `plugins/*/plugin.toml` + Rhai scripts; `PluginApi` exposes editor operations to scripts
-- **utils.rs**: UTF-8 helpers (`char_to_byte_index`, `byte_to_char_index`) needed because Rust strings are byte-indexed
+- **utils.rs**: UTF-8 helpers (`char_to_byte_index`, `byte_to_char_index`)
+
+### editor/ module
+- **mod.rs**: `Editor` struct definition, state management, core methods
+- **input.rs**: Key/mouse/prompt event handling
+- **movement.rs**: Cursor movement and word boundary detection
+- **render.rs**: Terminal rendering (lines, status bar, scroll indicator)
+- **screens.rs**: Full-screen overlays (help, statistics)
+- **clipboard.rs**: Copy/cut/paste operations
+- **undo.rs**: Undo/redo stack management
+- **file_ops.rs**: Open/save/search operations
+- **builtin_commands.rs**: Built-in command registration
+
+### plugins/ module
+- **mod.rs**: `PluginManager`, manifest parsing, hook execution
+- **api.rs**: `PluginApi` with script-exposed methods
 
 ## Key Patterns
 
 **UTF-8 Handling**: Cursor positions use char indices, but string slicing requires byte indices. Always use helpers from `utils.rs` when converting.
 
-**Delta-Based Undo**: Uses `EditOperation` (Insert/Delete with text) rather than full buffer snapshots. See `record_edit()` in editor.rs.
+**Delta-Based Undo**: Uses `EditOperation` (Insert/Delete with text) rather than full buffer snapshots. See `record_edit()` in editor/undo.rs.
 
 **Plugin API**: Plugins receive a `PluginApi` object with methods like `text()`, `set_text()`, `selection_text()`, `replace_selection()`. Commands register via `plugin.toml`.
 
