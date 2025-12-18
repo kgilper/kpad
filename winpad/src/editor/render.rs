@@ -1,7 +1,8 @@
 //! Rendering: drawing the editor UI to the terminal.
 
-use crate::types::{HighlightColor, PromptKind};
+use crate::types::PromptKind;
 use crate::utils::digits;
+use super::highlight::highlight_to_crossterm;
 use super::Editor;
 use anyhow::Result;
 use crossterm::{
@@ -13,26 +14,6 @@ use crossterm::{
 use std::cmp::max;
 use std::io::{Stdout, Write};
 use unicode_width::UnicodeWidthChar;
-
-/// Convert a HighlightColor to crossterm Color.
-fn highlight_to_crossterm(color: HighlightColor) -> Color {
-    match color {
-        HighlightColor::Red => Color::Red,
-        HighlightColor::Green => Color::Green,
-        HighlightColor::Yellow => Color::Yellow,
-        HighlightColor::Blue => Color::Blue,
-        HighlightColor::Magenta => Color::Magenta,
-        HighlightColor::Cyan => Color::Cyan,
-        HighlightColor::White => Color::White,
-        HighlightColor::Grey => Color::Grey,
-        HighlightColor::BrightRed => Color::DarkRed,
-        HighlightColor::BrightGreen => Color::DarkGreen,
-        HighlightColor::BrightYellow => Color::DarkYellow,
-        HighlightColor::BrightBlue => Color::DarkBlue,
-        HighlightColor::BrightMagenta => Color::DarkMagenta,
-        HighlightColor::BrightCyan => Color::DarkCyan,
-    }
-}
 
 impl Editor {
     /// Render the entire UI.

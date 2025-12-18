@@ -1,8 +1,29 @@
 //! Syntax highlighting system for plugin-registered rules.
 
 use crate::types::{HighlightColor, HighlightRule, HighlightSpan};
+use crossterm::style::Color;
 use regex::Regex;
 use std::collections::HashMap;
+
+/// Convert a HighlightColor to a crossterm Color.
+pub fn highlight_to_crossterm(color: HighlightColor) -> Color {
+    match color {
+        HighlightColor::Red => Color::Red,
+        HighlightColor::Green => Color::Green,
+        HighlightColor::Yellow => Color::Yellow,
+        HighlightColor::Blue => Color::Blue,
+        HighlightColor::Magenta => Color::Magenta,
+        HighlightColor::Cyan => Color::Cyan,
+        HighlightColor::White => Color::White,
+        HighlightColor::Grey => Color::Grey,
+        HighlightColor::BrightRed => Color::DarkRed,
+        HighlightColor::BrightGreen => Color::DarkGreen,
+        HighlightColor::BrightYellow => Color::DarkYellow,
+        HighlightColor::BrightBlue => Color::DarkBlue,
+        HighlightColor::BrightMagenta => Color::DarkMagenta,
+        HighlightColor::BrightCyan => Color::DarkCyan,
+    }
+}
 
 /// A compiled highlight rule ready for matching.
 struct CompiledRule {
