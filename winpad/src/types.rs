@@ -83,13 +83,6 @@ impl Prompt {
             completion_base: String::new(),
         }
     }
-
-    /// Reset completion state (call when input changes).
-    pub fn reset_completions(&mut self) {
-        self.completions.clear();
-        self.completion_index = None;
-        self.completion_base.clear();
-    }
 }
 
 /// Short-lived status message shown in the status bar.

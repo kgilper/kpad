@@ -119,3 +119,7 @@ fn setup_highlights(api, path) {
     api.add_highlight("md", "`[^`]+`", "green", 6);          // Inline code
 }
 ```
+
+## Development Guidelines
+
+**Avoid unused code**: Only add methods/functions that are actually called. Don't add "helper" methods speculatively. Rust's `#[warn(dead_code)]` will flag unused items. If you add a method, ensure it's used somewhere before committing.
