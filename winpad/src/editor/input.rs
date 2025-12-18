@@ -7,7 +7,99 @@ use super::Editor;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use std::cmp::min;
+use std::fs;
+use std::path::Path;
 use std::time::{Duration, Instant};
+
+/// Get path completions for a partial path.
+/// Returns a sorted list of matching paths (directories first, with trailing `/`).
+fn get_path_completions(partial: &str) -> Vec<String> {
+    let path = Path::new(partial);
+
+    // Determine the directory to search and the prefix to match
+    let (dir, prefix) = if partial.is_empty() {
+        (Path::new("."), "")
+    } else if partial.ends_with('/') || partial.ends_with('\\') {
+        (path, "")
+    } else if path.is_dir() {
+        (path, "")
+    } else {
+        let parent = path.parent().unwrap_or(Path::new("."));
+        let file_name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+        (parent, file_name)
+    };
+
+    let mut completions = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+
+            // Check if name starts with prefix (case-insensitive on Windows)
+            #[cfg(windows)]
+            let matches = name_str.to_lowercase().starts_with(&prefix.to_lowercase());
+            #[cfg(not(windows))]
+            let matches = name_str.starts_with(prefix);
+
+            if matches {
+                let full_path = if dir == Path::new(".") && !partial.starts_with("./") {
+                    name_str.to_string()
+                } else {
+                    dir.join(&*name_str).to_string_lossy().to_string()
+                };
+
+                // Append / for directories
+                let completion = if entry.path().is_dir() {
+                    format!("{}/", full_path)
+                } else {
+                    full_path
+                };
+                completions.push(completion);
+            }
+        }
+    }
+
+    // Sort: directories first, then alphabetically
+    completions.sort_by(|a, b| {
+        let a_is_dir = a.ends_with('/');
+        let b_is_dir = b.ends_with('/');
+        match (a_is_dir, b_is_dir) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.to_lowercase().cmp(&b.to_lowercase()),
+        }
+    });
+
+    completions
+}
+
+/// Find the longest common prefix among a list of strings.
+fn longest_common_prefix(strings: &[String]) -> String {
+    if strings.is_empty() {
+        return String::new();
+    }
+    if strings.len() == 1 {
+        return strings[0].clone();
+    }
+
+    let first = &strings[0];
+    let mut prefix_len = first.len();
+
+    for s in &strings[1..] {
+        prefix_len = first
+            .chars()
+            .zip(s.chars())
+            .take_while(|(a, b)| a == b)
+            .count();
+        if prefix_len == 0 {
+            break;
+        }
+        prefix_len = first.chars().take(prefix_len).collect::<String>().len();
+    }
+
+    first.chars().take(prefix_len).collect()
+}
 
 impl Editor {
     /// Top-level mouse handler.
@@ -263,6 +355,73 @@ impl Editor {
             (KeyCode::Esc, _) => {
                 self.prompt = None;
                 self.mark_redraw();
+                return Ok(false);
+            }
+            (KeyCode::Tab, _) | (KeyCode::BackTab, _) => {
+                // Tab completion for Open/SaveAs prompts
+                if prompt.kind == PromptKind::Open || prompt.kind == PromptKind::SaveAs {
+                    let shift = key.code == KeyCode::BackTab;
+
+                    // Check if input changed since last Tab
+                    if prompt.completion_base != prompt.input {
+                        // Fresh completion: get new completions
+                        prompt.completions = get_path_completions(&prompt.input);
+                        prompt.completion_base = prompt.input.clone();
+                        prompt.completion_index = None;
+                    }
+
+                    if prompt.completions.is_empty() {
+                        self.set_status("No completions", Duration::from_secs(1));
+                    } else if prompt.completions.len() == 1 {
+                        // Single match: complete it
+                        prompt.input = prompt.completions[0].clone();
+                        prompt.cursor = prompt.input.chars().count();
+                        prompt.completion_base = prompt.input.clone();
+                        // Get new completions for the completed path
+                        prompt.completions = get_path_completions(&prompt.input);
+                    } else {
+                        // Multiple matches
+                        if prompt.completion_index.is_none() {
+                            // First Tab: complete to common prefix
+                            let prefix = longest_common_prefix(&prompt.completions);
+                            if prefix.len() > prompt.input.len() {
+                                prompt.input = prefix;
+                                prompt.cursor = prompt.input.chars().count();
+                                prompt.completion_base = prompt.input.clone();
+                                prompt.completions = get_path_completions(&prompt.input);
+                            } else {
+                                // Already at common prefix, start cycling
+                                prompt.completion_index = Some(0);
+                                prompt.input = prompt.completions[0].clone();
+                                prompt.cursor = prompt.input.chars().count();
+                            }
+                        } else {
+                            // Subsequent Tab: cycle through completions
+                            let idx = prompt.completion_index.unwrap();
+                            let new_idx = if shift {
+                                if idx == 0 { prompt.completions.len() - 1 } else { idx - 1 }
+                            } else {
+                                (idx + 1) % prompt.completions.len()
+                            };
+                            prompt.completion_index = Some(new_idx);
+                            prompt.input = prompt.completions[new_idx].clone();
+                            prompt.cursor = prompt.input.chars().count();
+                        }
+
+                        // Show completion options in status
+                        let display: Vec<&str> = prompt.completions.iter()
+                            .map(|s| s.rsplit('/').next().unwrap_or(s).trim_end_matches('/'))
+                            .take(8)
+                            .collect();
+                        let msg = if prompt.completions.len() > 8 {
+                            format!("{} (+{} more)", display.join(" | "), prompt.completions.len() - 8)
+                        } else {
+                            display.join(" | ")
+                        };
+                        self.set_status(msg, Duration::from_secs(3));
+                    }
+                    self.mark_redraw();
+                }
                 return Ok(false);
             }
             (KeyCode::Enter, _) => {

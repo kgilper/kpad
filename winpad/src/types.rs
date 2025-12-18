@@ -61,6 +61,12 @@ pub struct Prompt {
     pub kind: PromptKind,
     pub input: String,
     pub cursor: usize, // char index in input
+    /// Path completion candidates (for Open/SaveAs prompts).
+    pub completions: Vec<String>,
+    /// Currently selected completion index (None = showing common prefix).
+    pub completion_index: Option<usize>,
+    /// The input value when Tab was first pressed (to detect changes).
+    pub completion_base: String,
 }
 
 impl Prompt {
@@ -68,7 +74,21 @@ impl Prompt {
     pub fn new(kind: PromptKind, initial: impl Into<String>) -> Self {
         let input = initial.into();
         let cursor = input.chars().count();
-        Self { kind, input, cursor }
+        Self {
+            kind,
+            input,
+            cursor,
+            completions: Vec::new(),
+            completion_index: None,
+            completion_base: String::new(),
+        }
+    }
+
+    /// Reset completion state (call when input changes).
+    pub fn reset_completions(&mut self) {
+        self.completions.clear();
+        self.completion_index = None;
+        self.completion_base.clear();
     }
 }
 
