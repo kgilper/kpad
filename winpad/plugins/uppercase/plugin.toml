@@ -1,0 +1,19 @@
+# Unique identifier for this plugin folder.
+id = "uppercase"
+
+# Human-friendly name (shown in the command descriptions).
+name = "Uppercase Tools"
+
+# Which Rhai script file to load from this plugin folder.
+script = "main.rhai"
+
+[[commands]]
+# Command name that appears in the command prompt (Ctrl+P).
+name = "uppercase_selection"
+description = "Uppercase selection (or current line if no selection)"
+
+# Rhai function name to call inside `main.rhai`.
+func = "uppercase_selection"
+
+# Keybinding (normalized by the editor so case doesn’t matter).
+key = "Ctrl+U"

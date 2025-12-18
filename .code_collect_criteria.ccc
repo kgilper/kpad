@@ -1,0 +1,31 @@
+{
+    "active_configuration": "default",
+    "configurations": {
+        "default": {
+            "keywords": "",
+            "file_types": [
+                ".md",
+                ".rhai",
+                ".rs",
+                ".toml",
+                "no extension"
+            ],
+            "exclude_files": "winpad\\Cargo.lock",
+            "exclude_dirs": "",
+            "case_insensitive": false,
+            "exclude_common_dirs": true,
+            "use_gitignore": true,
+            "strip_comments": false,
+            "preserve_docstrings": false,
+            "optimize_whitespace": false,
+            "prompt_header": "",
+            "prompt_footer": "",
+            "urls": [],
+            "plugins": {
+                "Git Diff Exporter": {
+                    "enabled": false
+                }
+            }
+        }
+    }
+}

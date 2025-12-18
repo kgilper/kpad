@@ -1,0 +1,19 @@
+# Unique identifier for this plugin folder.
+id = "trim_whitespace"
+
+# Human-friendly name (shown in the command descriptions).
+name = "Trim Whitespace"
+
+# Which Rhai script file to load from this plugin folder.
+script = "main.rhai"
+
+[[commands]]
+# Command name that appears in the command prompt (Ctrl+P).
+name = "trim_trailing_ws"
+description = "Trim trailing whitespace on every line"
+
+# Rhai function name to call inside `main.rhai`.
+func = "trim_trailing_ws"
+
+# Keybinding (normalized by the editor so case doesn’t matter).
+key = "Ctrl+Alt+T"
