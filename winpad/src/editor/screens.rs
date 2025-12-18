@@ -1,6 +1,6 @@
 //! Full-screen overlays: help screen, statistics screen.
 
-use crate::types::{DocumentStats, LineEnding};
+use crate::types::DocumentStats;
 use super::Editor;
 use anyhow::Result;
 use crossterm::{

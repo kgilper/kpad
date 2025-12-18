@@ -2,7 +2,6 @@
 
 use crate::commands::{Command, CommandRegistry, CommandSource};
 use crate::types::{Prompt, PromptKind};
-use super::Editor;
 
 /// Register all built-in editor commands.
 pub fn register_builtin_commands(reg: &mut CommandRegistry) {

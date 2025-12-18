@@ -339,7 +339,7 @@ impl Editor {
         Ok(())
     }
 
-    fn calculate_cursor_position(&self, width: usize, gutter: usize, editor_h: usize) -> Result<(usize, usize)> {
+    fn calculate_cursor_position(&self, width: usize, gutter: usize, _editor_h: usize) -> Result<(usize, usize)> {
         let avail = width.saturating_sub(gutter);
         if self.word_wrap {
             let mut current_screen_row = 0;
