@@ -12,7 +12,7 @@
 
 use crate::buffer::Buffer;
 use crate::editor::Editor;
-use crate::types::Pos;
+use crate::types::{HighlightColor, HighlightRule, Pos};
 use crate::utils::clamp_usize_i64;
 use std::cmp::min;
 use std::time::Duration;
@@ -127,6 +127,80 @@ impl PluginApi {
                 .unwrap_or_default()
         })
     }
+
+    /// Get the file extension of the current file (lowercase, without dot).
+    pub fn file_extension(&mut self) -> String {
+        self.with_editor(|ed| {
+            ed.file_path
+                .as_ref()
+                .and_then(|p| p.extension())
+                .and_then(|e| e.to_str())
+                .map(|s| s.to_lowercase())
+                .unwrap_or_default()
+        })
+    }
+
+    /// Register a syntax highlight rule for a file extension.
+    /// - `extension`: file extension without dot (e.g., "md", "rs"), or "" for all files
+    /// - `pattern`: regex pattern to match
+    /// - `color`: color name (red, green, yellow, blue, magenta, cyan, white, grey,
+    ///            bright_red, bright_green, bright_yellow, bright_blue, bright_magenta, bright_cyan)
+    /// - `priority`: higher priority rules override lower ones (default: 0)
+    pub fn add_highlight(&mut self, extension: String, pattern: String, color: String, priority: i64) {
+        let Some(hl_color) = HighlightColor::from_str(&color) else {
+            self.with_editor(|ed| {
+                ed.set_status(format!("Unknown highlight color: {}", color), Duration::from_secs(2));
+            });
+            return;
+        };
+
+        let rule = HighlightRule {
+            pattern,
+            color: hl_color,
+            priority: priority as i32,
+            group: 0,
+        };
+
+        self.with_editor(|ed| {
+            ed.highlighter.register_rule(&extension, rule);
+        });
+    }
+
+    /// Register a syntax highlight rule with a specific capture group.
+    /// - `group`: which capture group to highlight (0 = whole match, 1+ = specific group)
+    pub fn add_highlight_group(&mut self, extension: String, pattern: String, color: String, priority: i64, group: i64) {
+        let Some(hl_color) = HighlightColor::from_str(&color) else {
+            self.with_editor(|ed| {
+                ed.set_status(format!("Unknown highlight color: {}", color), Duration::from_secs(2));
+            });
+            return;
+        };
+
+        let rule = HighlightRule {
+            pattern,
+            color: hl_color,
+            priority: priority as i32,
+            group: group.max(0) as usize,
+        };
+
+        self.with_editor(|ed| {
+            ed.highlighter.register_rule(&extension, rule);
+        });
+    }
+
+    /// Clear all highlight rules for an extension.
+    pub fn clear_highlights(&mut self, extension: String) {
+        self.with_editor(|ed| {
+            ed.highlighter.clear_rules(&extension);
+        });
+    }
+
+    /// Clear all highlight rules.
+    pub fn clear_all_highlights(&mut self) {
+        self.with_editor(|ed| {
+            ed.highlighter.clear_all_rules();
+        });
+    }
 }
 
 /// Register all PluginApi methods with the Rhai engine.
@@ -145,4 +219,10 @@ pub fn register_api(engine: &mut rhai::Engine) {
     engine.register_fn("set_current_line_text", PluginApi::set_current_line_text);
     engine.register_fn("status", PluginApi::status);
     engine.register_fn("file_path", PluginApi::file_path);
+    engine.register_fn("file_extension", PluginApi::file_extension);
+    // Highlighting API
+    engine.register_fn("add_highlight", PluginApi::add_highlight);
+    engine.register_fn("add_highlight_group", PluginApi::add_highlight_group);
+    engine.register_fn("clear_highlights", PluginApi::clear_highlights);
+    engine.register_fn("clear_all_highlights", PluginApi::clear_all_highlights);
 }

@@ -47,6 +47,14 @@ impl Editor {
         self.dirty = false;
         self.undo.clear();
         self.redo.clear();
+
+        // Update highlighter for new file extension
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            self.highlighter.set_file_extension(ext);
+        } else {
+            self.highlighter.set_file_extension("");
+        }
+
         self.ensure_visible()?;
 
         let mut plugins = mem::take(&mut self.plugins);

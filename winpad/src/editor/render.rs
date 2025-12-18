@@ -1,6 +1,6 @@
 //! Rendering: drawing the editor UI to the terminal.
 
-use crate::types::PromptKind;
+use crate::types::{HighlightColor, PromptKind};
 use crate::utils::digits;
 use super::Editor;
 use anyhow::Result;
@@ -13,6 +13,26 @@ use crossterm::{
 use std::cmp::max;
 use std::io::{Stdout, Write};
 use unicode_width::UnicodeWidthChar;
+
+/// Convert a HighlightColor to crossterm Color.
+fn highlight_to_crossterm(color: HighlightColor) -> Color {
+    match color {
+        HighlightColor::Red => Color::Red,
+        HighlightColor::Green => Color::Green,
+        HighlightColor::Yellow => Color::Yellow,
+        HighlightColor::Blue => Color::Blue,
+        HighlightColor::Magenta => Color::Magenta,
+        HighlightColor::Cyan => Color::Cyan,
+        HighlightColor::White => Color::White,
+        HighlightColor::Grey => Color::Grey,
+        HighlightColor::BrightRed => Color::DarkRed,
+        HighlightColor::BrightGreen => Color::DarkGreen,
+        HighlightColor::BrightYellow => Color::DarkYellow,
+        HighlightColor::BrightBlue => Color::DarkBlue,
+        HighlightColor::BrightMagenta => Color::DarkMagenta,
+        HighlightColor::BrightCyan => Color::DarkCyan,
+    }
+}
 
 impl Editor {
     /// Render the entire UI.
@@ -81,7 +101,7 @@ impl Editor {
         Ok(())
     }
 
-    fn render_lines_normal(&self, stdout: &mut Stdout, width: usize, editor_h: usize, gutter: usize) -> Result<usize> {
+    fn render_lines_normal(&mut self, stdout: &mut Stdout, width: usize, editor_h: usize, gutter: usize) -> Result<usize> {
         let lnw = gutter - 2;
         let avail = width.saturating_sub(gutter);
 
@@ -127,15 +147,16 @@ impl Editor {
         Ok(editor_h)
     }
 
-    fn render_lines_wrapped(&self, stdout: &mut Stdout, width: usize, editor_h: usize, gutter: usize) -> Result<usize> {
+    fn render_lines_wrapped(&mut self, stdout: &mut Stdout, width: usize, editor_h: usize, gutter: usize) -> Result<usize> {
         let lnw = gutter - 2;
         let avail = width.saturating_sub(gutter);
         let mut rows_rendered = 0;
         let mut current_screen_row = 0;
 
-        for line_idx in 0..self.buf.line_count() {
-            let line = &self.buf.lines[line_idx];
-            let segments = self.calculate_wrap_segments(line, avail);
+        let line_count = self.buf.line_count();
+        for line_idx in 0..line_count {
+            let line = self.buf.lines[line_idx].clone();
+            let segments = self.calculate_wrap_segments(&line, avail);
 
             for (seg_idx, &start_char_idx) in segments.iter().enumerate() {
                 if current_screen_row >= self.scroll_y && rows_rendered < editor_h {
@@ -156,7 +177,7 @@ impl Editor {
                     stdout.queue(style::Print("│ "))?;
                     stdout.queue(style::ResetColor)?;
 
-                    self.render_wrapped_segment(stdout, line_idx, line, start_char_idx, avail, base_bg)?;
+                    self.render_wrapped_segment(stdout, line_idx, &line, start_char_idx, avail, base_bg)?;
 
                     if is_current_line {
                         let chars: Vec<char> = line.chars().skip(start_char_idx).collect();
@@ -193,48 +214,88 @@ impl Editor {
         segments
     }
 
-    fn render_wrapped_segment(&self, stdout: &mut Stdout, line_idx: usize, line: &str, start_char_idx: usize, avail: usize, base_bg: Option<Color>) -> Result<()> {
+    fn render_wrapped_segment(&mut self, stdout: &mut Stdout, line_idx: usize, line: &str, start_char_idx: usize, avail: usize, base_bg: Option<Color>) -> Result<()> {
+        let sel = self.selection_range();
+
+        // Get syntax highlights for this line
+        let highlights = self.highlighter.get_highlights(line_idx, line);
+
         let chars: Vec<char> = line.chars().skip(start_char_idx).collect();
         let mut col_used = 0;
         let mut seg_char_i = start_char_idx;
-        let mut seg_text = String::new();
-        let mut seg_selected: Option<bool> = None;
-        let sel = self.selection_range();
 
         for ch in chars {
             let ch_w = UnicodeWidthChar::width(ch).unwrap_or(1);
             if col_used + ch_w > avail { break; }
+
             let selected = self.is_char_selected(sel, line_idx, seg_char_i);
-            if seg_selected.is_none() { seg_selected = Some(selected); }
-            else if seg_selected.unwrap() != selected { self.flush_text_segment(stdout, &mut seg_text, &mut seg_selected, base_bg)?; seg_selected = Some(selected); }
-            seg_text.push(ch);
+
+            // Determine color: selection overrides syntax highlighting
+            if selected {
+                stdout.queue(style::SetForegroundColor(Color::Black))?;
+                stdout.queue(style::SetBackgroundColor(Color::Grey))?;
+                stdout.queue(style::SetAttribute(Attribute::Bold))?;
+            } else {
+                // Check for syntax highlight color
+                let hl_color = self.highlighter.color_at(&highlights, seg_char_i);
+                if let Some(bg) = base_bg { stdout.queue(style::SetBackgroundColor(bg))?; }
+                if let Some(hc) = hl_color {
+                    stdout.queue(style::SetForegroundColor(highlight_to_crossterm(hc)))?;
+                } else {
+                    stdout.queue(style::SetForegroundColor(Color::Reset))?;
+                }
+                stdout.queue(style::SetAttribute(Attribute::Reset))?;
+            }
+
+            stdout.queue(style::Print(ch))?;
+            stdout.queue(style::ResetColor)?;
+
             col_used += ch_w;
             seg_char_i += 1;
         }
-        self.flush_text_segment(stdout, &mut seg_text, &mut seg_selected, base_bg)?;
         Ok(())
     }
 
-    fn render_line_content(&self, stdout: &mut Stdout, y: usize, avail: usize, base_bg: Option<Color>) -> Result<()> {
-        let line = &self.buf.lines[y];
+    fn render_line_content(&mut self, stdout: &mut Stdout, y: usize, avail: usize, base_bg: Option<Color>) -> Result<()> {
+        let line = self.buf.lines[y].clone();
         let sel = self.selection_range();
+
+        // Get syntax highlights for this line
+        let highlights = self.highlighter.get_highlights(y, &line);
+
         let mut col_used = 0;
         let mut char_i = self.scroll_x;
         let chars: Vec<char> = if self.scroll_x < line.chars().count() { line.chars().skip(self.scroll_x).collect() } else { vec![] };
-        let mut seg = String::new();
-        let mut seg_selected: Option<bool> = None;
 
         for ch in chars {
             let ch_w = UnicodeWidthChar::width(ch).unwrap_or(1);
             if col_used + ch_w > avail { break; }
+
             let selected = self.is_char_selected(sel, y, char_i);
-            if seg_selected.is_none() { seg_selected = Some(selected); }
-            else if seg_selected.unwrap() != selected { self.flush_text_segment(stdout, &mut seg, &mut seg_selected, base_bg)?; seg_selected = Some(selected); }
-            seg.push(ch);
+
+            // Determine color: selection overrides syntax highlighting
+            if selected {
+                stdout.queue(style::SetForegroundColor(Color::Black))?;
+                stdout.queue(style::SetBackgroundColor(Color::Grey))?;
+                stdout.queue(style::SetAttribute(Attribute::Bold))?;
+            } else {
+                // Check for syntax highlight color
+                let hl_color = self.highlighter.color_at(&highlights, char_i);
+                if let Some(bg) = base_bg { stdout.queue(style::SetBackgroundColor(bg))?; }
+                if let Some(hc) = hl_color {
+                    stdout.queue(style::SetForegroundColor(highlight_to_crossterm(hc)))?;
+                } else {
+                    stdout.queue(style::SetForegroundColor(Color::Reset))?;
+                }
+                stdout.queue(style::SetAttribute(Attribute::Reset))?;
+            }
+
+            stdout.queue(style::Print(ch))?;
+            stdout.queue(style::ResetColor)?;
+
             col_used += ch_w;
             char_i += 1;
         }
-        self.flush_text_segment(stdout, &mut seg, &mut seg_selected, base_bg)?;
         Ok(())
     }
 
@@ -246,25 +307,6 @@ impl Editor {
             else if y == b.y { char_i < b.x }
             else { true }
         } else { false }
-    }
-
-    fn flush_text_segment(&self, stdout: &mut Stdout, seg: &mut String, seg_selected: &mut Option<bool>, base_bg: Option<Color>) -> Result<()> {
-        if seg.is_empty() { return Ok(()); }
-        let selected = seg_selected.unwrap_or(false);
-        if selected {
-            stdout.queue(style::SetForegroundColor(Color::Black))?;
-            stdout.queue(style::SetBackgroundColor(Color::Grey))?;
-            stdout.queue(style::SetAttribute(Attribute::Bold))?;
-        } else {
-            if let Some(bg) = base_bg { stdout.queue(style::SetBackgroundColor(bg))?; }
-            stdout.queue(style::SetForegroundColor(Color::Reset))?;
-            stdout.queue(style::SetAttribute(Attribute::Reset))?;
-        }
-        stdout.queue(style::Print(seg.as_str()))?;
-        stdout.queue(style::ResetColor)?;
-        seg.clear();
-        *seg_selected = None;
-        Ok(())
     }
 
     fn render_scroll_indicator(&self, stdout: &mut Stdout, row: usize, width: usize, editor_h: usize) -> Result<()> {

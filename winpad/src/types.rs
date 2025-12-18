@@ -116,4 +116,72 @@ pub struct DocumentStats {
     pub line_length_histogram: Vec<usize>,
 }
 
+/// Colors available for syntax highlighting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HighlightColor {
+    Red,
+    Green,
+    Yellow,
+    Blue,
+    Magenta,
+    Cyan,
+    White,
+    Grey,
+    BrightRed,
+    BrightGreen,
+    BrightYellow,
+    BrightBlue,
+    BrightMagenta,
+    BrightCyan,
+}
+
+impl HighlightColor {
+    /// Parse a color name from a string (for plugin use).
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s.to_lowercase().as_str() {
+            "red" => Some(Self::Red),
+            "green" => Some(Self::Green),
+            "yellow" => Some(Self::Yellow),
+            "blue" => Some(Self::Blue),
+            "magenta" | "purple" => Some(Self::Magenta),
+            "cyan" => Some(Self::Cyan),
+            "white" => Some(Self::White),
+            "grey" | "gray" => Some(Self::Grey),
+            "bright_red" | "brightred" => Some(Self::BrightRed),
+            "bright_green" | "brightgreen" => Some(Self::BrightGreen),
+            "bright_yellow" | "brightyellow" => Some(Self::BrightYellow),
+            "bright_blue" | "brightblue" => Some(Self::BrightBlue),
+            "bright_magenta" | "brightmagenta" => Some(Self::BrightMagenta),
+            "bright_cyan" | "brightcyan" => Some(Self::BrightCyan),
+            _ => None,
+        }
+    }
+}
+
+/// A syntax highlighting rule registered by a plugin.
+#[derive(Debug, Clone)]
+pub struct HighlightRule {
+    /// Regex pattern to match.
+    pub pattern: String,
+    /// Color to apply to matches.
+    pub color: HighlightColor,
+    /// Higher priority rules override lower ones (default: 0).
+    pub priority: i32,
+    /// Which capture group to highlight (0 = whole match).
+    pub group: usize,
+}
+
+/// A highlighted span within a line.
+#[derive(Debug, Clone)]
+pub struct HighlightSpan {
+    /// Start char index (inclusive).
+    pub start: usize,
+    /// End char index (exclusive).
+    pub end: usize,
+    /// Color for this span.
+    pub color: HighlightColor,
+    /// Priority (for overlapping spans).
+    pub priority: i32,
+}
+
 

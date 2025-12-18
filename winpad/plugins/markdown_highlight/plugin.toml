@@ -1,0 +1,6 @@
+id = "markdown_highlight"
+name = "Markdown Syntax Highlighting"
+script = "main.rhai"
+
+[hooks]
+on_open = "setup_highlights"

@@ -3,6 +3,7 @@
 mod builtin_commands;
 mod clipboard;
 mod file_ops;
+pub mod highlight;
 mod input;
 mod movement;
 mod render;
@@ -24,6 +25,7 @@ use std::time::{Duration, Instant};
 use unicode_width::UnicodeWidthChar;
 
 pub use builtin_commands::register_builtin_commands;
+pub use highlight::Highlighter;
 
 /// The top-level application state.
 pub struct Editor {
@@ -65,6 +67,8 @@ pub struct Editor {
     pub show_help: bool,
     /// Whether the stats screen is displayed.
     pub show_stats: bool,
+    /// Syntax highlighter for plugin-registered rules.
+    pub highlighter: Highlighter,
 }
 
 impl Editor {
@@ -72,15 +76,20 @@ impl Editor {
     pub fn new(path: Option<PathBuf>) -> Result<Self> {
         let mut buf = Buffer::new();
         let mut file_path = None;
+        let mut highlighter = Highlighter::new();
 
         if let Some(p) = path {
             if p.exists() {
                 let s = fs::read_to_string(&p)
                     .with_context(|| format!("Failed to read file: {}", p.display()))?;
                 buf = Buffer::from_string(&s);
-                file_path = Some(p);
+                file_path = Some(p.clone());
             } else {
-                file_path = Some(p);
+                file_path = Some(p.clone());
+            }
+            // Set file extension for highlighter
+            if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
+                highlighter.set_file_extension(ext);
             }
         }
 
@@ -110,6 +119,7 @@ impl Editor {
             word_wrap: false,
             show_help: false,
             show_stats: false,
+            highlighter,
         };
 
         if let Some(p) = ed.file_path.clone() {
