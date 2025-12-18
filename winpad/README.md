@@ -2,6 +2,19 @@
 
 This project is modularly structured to make it easy to maintain and explore.
 
+## Dependencies
+
+| Crate | Version | Purpose |
+|-------|---------|---------|
+| [anyhow](https://crates.io/crates/anyhow) | 1.0 | Ergonomic error handling with context |
+| [crossterm](https://crates.io/crates/crossterm) | 0.28 | Cross-platform terminal manipulation (raw mode, colors, input) |
+| [unicode-width](https://crates.io/crates/unicode-width) | 0.2 | Determine display width of Unicode characters |
+| [arboard](https://crates.io/crates/arboard) | 3 | Cross-platform clipboard access (copy/paste) |
+| [rhai](https://crates.io/crates/rhai) | 1 | Embedded scripting language for plugins |
+| [serde](https://crates.io/crates/serde) | 1 | Serialization framework (with derive macros) |
+| [toml](https://crates.io/crates/toml) | 0.8 | Parse plugin.toml manifest files |
+| [regex](https://crates.io/crates/regex) | 1 | Regular expressions for syntax highlighting |
+
 ## How to build & run
 
 From this folder:
