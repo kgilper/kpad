@@ -225,11 +225,11 @@ impl Editor {
                 } else {
                     stdout.queue(style::SetForegroundColor(Color::Reset))?;
                 }
-                stdout.queue(style::SetAttribute(Attribute::Reset))?;
             }
 
             stdout.queue(style::Print(ch))?;
             stdout.queue(style::ResetColor)?;
+            stdout.queue(style::SetAttribute(Attribute::Reset))?;
 
             col_used += ch_w;
             seg_char_i += 1;
@@ -268,11 +268,11 @@ impl Editor {
                 } else {
                     stdout.queue(style::SetForegroundColor(Color::Reset))?;
                 }
-                stdout.queue(style::SetAttribute(Attribute::Reset))?;
             }
 
             stdout.queue(style::Print(ch))?;
             stdout.queue(style::ResetColor)?;
+            stdout.queue(style::SetAttribute(Attribute::Reset))?;
 
             col_used += ch_w;
             char_i += 1;

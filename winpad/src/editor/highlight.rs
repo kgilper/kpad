@@ -104,6 +104,7 @@ impl Highlighter {
     }
 
     /// Invalidate the cache for a specific line (call after edits).
+    #[allow(dead_code)]
     pub fn invalidate_line(&mut self, line: usize) {
         self.cache.remove(&line);
         // Also invalidate nearby lines for multi-line constructs
@@ -114,6 +115,7 @@ impl Highlighter {
     }
 
     /// Invalidate the entire cache (call after major edits).
+    #[allow(dead_code)]
     pub fn invalidate_all(&mut self) {
         self.cache.clear();
     }
@@ -203,6 +205,7 @@ impl Highlighter {
     }
 
     /// Check if highlighting is active for the current file.
+    #[allow(dead_code)]
     pub fn is_active(&self) -> bool {
         self.rules_by_ext.contains_key(&self.current_ext)
             || self.rules_by_ext.contains_key("")
