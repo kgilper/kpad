@@ -279,3 +279,224 @@ impl Buffer {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ==================== Buffer creation tests ====================
+
+    #[test]
+    fn new_buffer_has_one_empty_line() {
+        let buf = Buffer::new();
+        assert_eq!(buf.line_count(), 1);
+        assert_eq!(buf.lines[0], "");
+        assert_eq!(buf.line_ending, LineEnding::LF);
+    }
+
+    #[test]
+    fn from_string_empty() {
+        let buf = Buffer::from_string("");
+        assert_eq!(buf.line_count(), 1);
+        assert_eq!(buf.lines[0], "");
+    }
+
+    #[test]
+    fn from_string_single_line() {
+        let buf = Buffer::from_string("hello world");
+        assert_eq!(buf.line_count(), 1);
+        assert_eq!(buf.lines[0], "hello world");
+    }
+
+    #[test]
+    fn from_string_lf_lines() {
+        let buf = Buffer::from_string("line1\nline2\nline3");
+        assert_eq!(buf.line_count(), 3);
+        assert_eq!(buf.lines[0], "line1");
+        assert_eq!(buf.lines[1], "line2");
+        assert_eq!(buf.lines[2], "line3");
+        assert_eq!(buf.line_ending, LineEnding::LF);
+    }
+
+    #[test]
+    fn from_string_crlf_lines() {
+        let buf = Buffer::from_string("line1\r\nline2\r\nline3");
+        assert_eq!(buf.line_count(), 3);
+        assert_eq!(buf.lines[0], "line1");
+        assert_eq!(buf.lines[1], "line2");
+        assert_eq!(buf.lines[2], "line3");
+        assert_eq!(buf.line_ending, LineEnding::CRLF);
+    }
+
+    #[test]
+    fn to_string_preserves_line_ending() {
+        let buf_lf = Buffer::from_string("a\nb");
+        assert_eq!(buf_lf.to_string(), "a\nb");
+
+        let buf_crlf = Buffer::from_string("a\r\nb");
+        assert_eq!(buf_crlf.to_string(), "a\r\nb");
+    }
+
+    // ==================== Insert tests ====================
+
+    #[test]
+    fn insert_char_ascii() {
+        let mut buf = Buffer::new();
+        let pos = buf.insert_char(Pos { y: 0, x: 0 }, 'a');
+        assert_eq!(pos, Pos { y: 0, x: 1 });
+        assert_eq!(buf.lines[0], "a");
+    }
+
+    #[test]
+    fn insert_char_unicode() {
+        let mut buf = Buffer::from_string("hllo");
+        // Insert 'é' at position 1 to make "héllo"
+        let pos = buf.insert_char(Pos { y: 0, x: 1 }, 'é');
+        assert_eq!(pos, Pos { y: 0, x: 2 });
+        assert_eq!(buf.lines[0], "héllo");
+    }
+
+    #[test]
+    fn insert_char_emoji() {
+        let mut buf = Buffer::from_string("ab");
+        let pos = buf.insert_char(Pos { y: 0, x: 1 }, '😀');
+        assert_eq!(pos, Pos { y: 0, x: 2 });
+        assert_eq!(buf.lines[0], "a😀b");
+    }
+
+    #[test]
+    fn insert_newline() {
+        let mut buf = Buffer::from_string("hello world");
+        let pos = buf.insert_newline(Pos { y: 0, x: 5 });
+        assert_eq!(pos, Pos { y: 1, x: 0 });
+        assert_eq!(buf.line_count(), 2);
+        assert_eq!(buf.lines[0], "hello");
+        assert_eq!(buf.lines[1], " world");
+    }
+
+    #[test]
+    fn insert_str_single_line() {
+        let mut buf = Buffer::from_string("ac");
+        let pos = buf.insert_str(Pos { y: 0, x: 1 }, "b");
+        assert_eq!(pos, Pos { y: 0, x: 2 });
+        assert_eq!(buf.lines[0], "abc");
+    }
+
+    #[test]
+    fn insert_str_multiline() {
+        let mut buf = Buffer::from_string("start end");
+        let pos = buf.insert_str(Pos { y: 0, x: 6 }, "line1\nline2\nline3");
+        assert_eq!(buf.line_count(), 3);
+        assert_eq!(buf.lines[0], "start line1");
+        assert_eq!(buf.lines[1], "line2");
+        assert_eq!(buf.lines[2], "line3end");
+        assert_eq!(pos.y, 2);
+    }
+
+    // ==================== Delete tests ====================
+
+    #[test]
+    fn delete_backspace_middle() {
+        let mut buf = Buffer::from_string("abc");
+        let pos = buf.delete_backspace(Pos { y: 0, x: 2 });
+        assert_eq!(pos, Pos { y: 0, x: 1 });
+        assert_eq!(buf.lines[0], "ac");
+    }
+
+    #[test]
+    fn delete_backspace_unicode() {
+        let mut buf = Buffer::from_string("héllo");
+        // Delete the 'é' (at char index 1)
+        let pos = buf.delete_backspace(Pos { y: 0, x: 2 });
+        assert_eq!(pos, Pos { y: 0, x: 1 });
+        assert_eq!(buf.lines[0], "hllo");
+    }
+
+    #[test]
+    fn delete_backspace_merge_lines() {
+        let mut buf = Buffer::from_string("line1\nline2");
+        let pos = buf.delete_backspace(Pos { y: 1, x: 0 });
+        assert_eq!(pos, Pos { y: 0, x: 5 });
+        assert_eq!(buf.line_count(), 1);
+        assert_eq!(buf.lines[0], "line1line2");
+    }
+
+    #[test]
+    fn delete_delete_middle() {
+        let mut buf = Buffer::from_string("abc");
+        let pos = buf.delete_delete(Pos { y: 0, x: 1 });
+        assert_eq!(pos, Pos { y: 0, x: 1 });
+        assert_eq!(buf.lines[0], "ac");
+    }
+
+    #[test]
+    fn delete_delete_merge_lines() {
+        let mut buf = Buffer::from_string("line1\nline2");
+        let pos = buf.delete_delete(Pos { y: 0, x: 5 });
+        assert_eq!(pos, Pos { y: 0, x: 5 });
+        assert_eq!(buf.line_count(), 1);
+        assert_eq!(buf.lines[0], "line1line2");
+    }
+
+    // ==================== Range operations tests ====================
+
+    #[test]
+    fn get_range_same_line() {
+        let buf = Buffer::from_string("hello world");
+        let text = buf.get_range(Pos { y: 0, x: 0 }, Pos { y: 0, x: 5 });
+        assert_eq!(text, "hello");
+    }
+
+    #[test]
+    fn get_range_multiline() {
+        let buf = Buffer::from_string("line1\nline2\nline3");
+        let text = buf.get_range(Pos { y: 0, x: 3 }, Pos { y: 2, x: 3 });
+        assert_eq!(text, "e1\nline2\nlin");
+    }
+
+    #[test]
+    fn delete_range_same_line() {
+        let mut buf = Buffer::from_string("hello world");
+        let pos = buf.delete_range(Pos { y: 0, x: 5 }, Pos { y: 0, x: 11 });
+        assert_eq!(pos, Pos { y: 0, x: 5 });
+        assert_eq!(buf.lines[0], "hello");
+    }
+
+    #[test]
+    fn delete_range_multiline() {
+        let mut buf = Buffer::from_string("start\nmiddle\nend");
+        let pos = buf.delete_range(Pos { y: 0, x: 3 }, Pos { y: 2, x: 1 });
+        assert_eq!(pos, Pos { y: 0, x: 3 });
+        assert_eq!(buf.line_count(), 1);
+        assert_eq!(buf.lines[0], "stand");
+    }
+
+    // ==================== Unicode edge cases ====================
+
+    #[test]
+    fn operations_with_cjk() {
+        let mut buf = Buffer::from_string("日本語");
+        assert_eq!(buf.line_len_chars(0), 3);
+
+        // Insert at middle
+        let pos = buf.insert_char(Pos { y: 0, x: 1 }, '中');
+        assert_eq!(pos, Pos { y: 0, x: 2 });
+        assert_eq!(buf.lines[0], "日中本語");
+
+        // Delete
+        buf.delete_backspace(Pos { y: 0, x: 2 });
+        assert_eq!(buf.lines[0], "日本語");
+    }
+
+    #[test]
+    fn clamp_pos_works() {
+        let buf = Buffer::from_string("short\nlonger line");
+
+        // Beyond last line
+        let p = buf.clamp_pos(Pos { y: 100, x: 0 });
+        assert_eq!(p.y, 1);
+
+        // Beyond line length
+        let p = buf.clamp_pos(Pos { y: 0, x: 100 });
+        assert_eq!(p.x, 5);
+    }
+}

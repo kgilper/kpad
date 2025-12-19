@@ -123,3 +123,11 @@ fn setup_highlights(api, path) {
 ## Development Guidelines
 
 **Avoid unused code**: Only add methods/functions that are actually called. Don't add "helper" methods speculatively. Rust's `#[warn(dead_code)]` will flag unused items. If you add a method, ensure it's used somewhere before committing.
+
+**Run tests**: Use `cargo test` to run unit tests for `buffer.rs` and `utils.rs`. These cover UTF-8 index conversions, buffer operations, and edge cases with Unicode/emoji/CJK characters.
+
+## Architectural Notes
+
+**Editor struct size**: The `Editor` struct in `editor/mod.rs` holds ~20 fields. If adding features like split panes or multi-buffer, consider grouping related fields into sub-structs (e.g., `EditorConfig`, `ViewState`).
+
+**Plugin API safety**: The `PluginApi` uses a raw pointer (`*mut Editor`) for Rhai callbacks. This is safe because plugin calls are synchronous and single-threaded. If the project becomes multi-threaded, this design must change (use `Arc<Mutex<Editor>>` or message passing).
