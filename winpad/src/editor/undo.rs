@@ -18,6 +18,7 @@ impl Editor {
             self.undo.drain(0..(self.undo.len() - CAP));
         }
         self.redo.clear();
+        self.highlighter.invalidate_all();
     }
 
     /// Undo the most recent edit.
@@ -44,6 +45,7 @@ impl Editor {
             self.cursor = entry.cursor_before;
             self.anchor = entry.anchor_before;
             self.dirty = true;
+            self.highlighter.invalidate_all();
             self.mark_redraw();
             self.ensure_visible()?;
         }
@@ -74,6 +76,7 @@ impl Editor {
             self.cursor = entry.cursor_before;
             self.anchor = entry.anchor_before;
             self.dirty = true;
+            self.highlighter.invalidate_all();
             self.mark_redraw();
             self.ensure_visible()?;
         }

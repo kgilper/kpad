@@ -115,7 +115,6 @@ impl Highlighter {
     }
 
     /// Invalidate the entire cache (call after major edits).
-    #[allow(dead_code)]
     pub fn invalidate_all(&mut self) {
         self.cache.clear();
     }
