@@ -181,7 +181,7 @@ The `Editor` struct holds:
 
 ## Plugin System
 
-Plugins extend kpad with custom commands and syntax highlighting.
+Plugins extend kpad with custom commands and syntax highlighting. For comprehensive documentation, see the [Plugin Development Guide](docs/PLUGIN_DEVELOPMENT.md).
 
 ### Plugin Structure
 

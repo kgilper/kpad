@@ -32,7 +32,7 @@ cargo uninstall kpad
 
 ## Architecture
 
-The editor is in `winpad/src/` with this structure:
+The editor is in `kpad/src/` with this structure:
 
 - **main.rs**: Entry point and main event loop (render -> read input -> update state)
 - **terminal.rs**: Raw mode + alternate screen setup via RAII (`TerminalGuard`)
@@ -70,6 +70,8 @@ The editor is in `winpad/src/` with this structure:
 **Rendering**: Full redraw strategy with `needs_redraw` flag to avoid unnecessary renders. Word wrap mode calculates screen rows from logical lines.
 
 ## Plugin Structure
+
+See [docs/PLUGIN_DEVELOPMENT.md](docs/PLUGIN_DEVELOPMENT.md) for comprehensive plugin development documentation.
 
 ```
 plugins/
