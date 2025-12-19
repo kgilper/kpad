@@ -2,29 +2,6 @@
 
 use std::cmp::min; // comparison helpers
 
-/// Convert a "character index" to a "byte index" in a UTF‑8 string.
-///
-/// Why this exists: Rust strings are UTF‑8, so you cannot safely slice with `s[a..b]` unless
-/// `a` and `b` are **byte offsets** that lie on UTF‑8 character boundaries.
-pub fn char_to_byte_index(s: &str, char_idx: usize) -> usize {
-    if char_idx == 0 {
-        return 0;
-    }
-    let mut ci = 0usize;
-    for (bi, _) in s.char_indices() {
-        if ci == char_idx {
-            return bi;
-        }
-        ci += 1;
-    }
-    s.len()
-}
-
-/// Convert a byte offset back into a character index.
-pub fn byte_to_char_index(s: &str, byte_idx: usize) -> usize {
-    s[..min(byte_idx, s.len())].chars().count()
-}
-
 /// Number of decimal digits in `n` (used to size the line-number gutter).
 pub fn digits(n: usize) -> usize {
     n.to_string().len()
@@ -111,97 +88,6 @@ pub fn levenshtein_distance(s1: &str, s2: &str) -> usize {
 mod tests {
     use super::*;
 
-    // ==================== char_to_byte_index tests ====================
-
-    #[test]
-    fn char_to_byte_ascii() {
-        let s = "hello";
-        assert_eq!(char_to_byte_index(s, 0), 0);
-        assert_eq!(char_to_byte_index(s, 1), 1);
-        assert_eq!(char_to_byte_index(s, 5), 5);
-    }
-
-    #[test]
-    fn char_to_byte_unicode() {
-        // "héllo" - 'é' is 2 bytes in UTF-8
-        let s = "héllo";
-        assert_eq!(char_to_byte_index(s, 0), 0); // 'h'
-        assert_eq!(char_to_byte_index(s, 1), 1); // 'é' starts at byte 1
-        assert_eq!(char_to_byte_index(s, 2), 3); // 'l' starts at byte 3 (after 2-byte é)
-        assert_eq!(char_to_byte_index(s, 3), 4); // 'l'
-        assert_eq!(char_to_byte_index(s, 4), 5); // 'o'
-    }
-
-    #[test]
-    fn char_to_byte_emoji() {
-        // Emoji are typically 4 bytes in UTF-8
-        let s = "a😀b";
-        assert_eq!(char_to_byte_index(s, 0), 0); // 'a'
-        assert_eq!(char_to_byte_index(s, 1), 1); // '😀' starts at byte 1
-        assert_eq!(char_to_byte_index(s, 2), 5); // 'b' starts at byte 5 (after 4-byte emoji)
-    }
-
-    #[test]
-    fn char_to_byte_cjk() {
-        // CJK characters are 3 bytes each
-        let s = "日本語";
-        assert_eq!(char_to_byte_index(s, 0), 0);
-        assert_eq!(char_to_byte_index(s, 1), 3);
-        assert_eq!(char_to_byte_index(s, 2), 6);
-        assert_eq!(char_to_byte_index(s, 3), 9); // end of string
-    }
-
-    #[test]
-    fn char_to_byte_beyond_end() {
-        let s = "abc";
-        assert_eq!(char_to_byte_index(s, 10), 3); // clamps to string length
-    }
-
-    #[test]
-    fn char_to_byte_empty() {
-        let s = "";
-        assert_eq!(char_to_byte_index(s, 0), 0);
-        assert_eq!(char_to_byte_index(s, 5), 0);
-    }
-
-    // ==================== byte_to_char_index tests ====================
-
-    #[test]
-    fn byte_to_char_ascii() {
-        let s = "hello";
-        assert_eq!(byte_to_char_index(s, 0), 0);
-        assert_eq!(byte_to_char_index(s, 3), 3);
-        assert_eq!(byte_to_char_index(s, 5), 5);
-    }
-
-    #[test]
-    fn byte_to_char_unicode() {
-        let s = "héllo"; // é is 2 bytes
-        assert_eq!(byte_to_char_index(s, 0), 0); // before 'h'
-        assert_eq!(byte_to_char_index(s, 1), 1); // after 'h', before 'é'
-        assert_eq!(byte_to_char_index(s, 3), 2); // after 'é', before 'l'
-    }
-
-    #[test]
-    fn byte_to_char_beyond_end() {
-        let s = "abc";
-        assert_eq!(byte_to_char_index(s, 100), 3);
-    }
-
-    // ==================== roundtrip tests ====================
-
-    #[test]
-    fn roundtrip_char_byte_char() {
-        let s = "héllo 日本語 😀";
-        for i in 0..=s.chars().count() {
-            let byte_idx = char_to_byte_index(s, i);
-            let char_idx = byte_to_char_index(s, byte_idx);
-            assert_eq!(char_idx, i, "roundtrip failed for char index {}", i);
-        }
-    }
-
-    // ==================== other utils tests ====================
-
     #[test]
     fn test_digits() {
         assert_eq!(digits(0), 1);
@@ -229,4 +115,3 @@ mod tests {
         assert_eq!(levenshtein_distance("save", "dave"), 1);
     }
 }
-

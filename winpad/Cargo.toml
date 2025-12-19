@@ -3,6 +3,13 @@ name = "kpad"
 version = "0.1.0"
 edition = "2021"
 
+[lints.rust]
+dead_code = "deny"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"
+
 [dependencies]
 anyhow = "1.0"
 crossterm = "0.28"

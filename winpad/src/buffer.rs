@@ -3,6 +3,7 @@
 use crate::types::{LineEnding, Pos};
 use ropey::Rope;
 use std::borrow::Cow;
+use std::io::{self, Write};
 
 /// The document buffer using a Rope data structure.
 ///
@@ -48,6 +49,75 @@ impl Buffer {
         } else {
             s
         }
+    }
+
+    /// Stream the buffer to a writer, avoiding full String allocation.
+    /// This is more efficient for large files.
+    pub fn write_to<W: Write>(&self, mut writer: W) -> io::Result<()> {
+        if self.line_ending == LineEnding::CRLF {
+            // Need to convert LF to CRLF while streaming
+            for chunk in self.text.chunks() {
+                let converted = chunk.replace('\n', "\r\n");
+                writer.write_all(converted.as_bytes())?;
+            }
+        } else {
+            // Stream chunks directly using ropey's efficient iterator
+            for chunk in self.text.chunks() {
+                writer.write_all(chunk.as_bytes())?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Search for a query string starting from a char index.
+    /// Returns the char index of the match, or None if not found.
+    pub fn search_from(&self, query: &str, start_char_idx: usize) -> Option<usize> {
+        if query.is_empty() || start_char_idx >= self.text.len_chars() {
+            return None;
+        }
+
+        // Get the slice from start position to end
+        let slice = self.text.slice(start_char_idx..);
+
+        // Search through chunks, handling boundary crossings
+        let query_chars: Vec<char> = query.chars().collect();
+        let mut match_start: Option<usize> = None;
+        let mut match_len = 0;
+        let mut char_offset = 0;
+
+        for chunk in slice.chunks() {
+            for ch in chunk.chars() {
+                if ch == query_chars[match_len] {
+                    if match_len == 0 {
+                        match_start = Some(char_offset);
+                    }
+                    match_len += 1;
+                    if match_len == query_chars.len() {
+                        return Some(start_char_idx + match_start.unwrap());
+                    }
+                } else if match_len > 0 {
+                    // Reset and check if current char starts a new match
+                    match_len = 0;
+                    match_start = None;
+                    if ch == query_chars[0] {
+                        match_start = Some(char_offset);
+                        match_len = 1;
+                    }
+                }
+                char_offset += 1;
+            }
+        }
+        None
+    }
+
+    /// Convert a char index to a Pos (line, column).
+    pub fn char_idx_to_pos_public(&self, char_idx: usize) -> Pos {
+        self.char_idx_to_pos(char_idx)
+    }
+
+    /// Convert a Pos to a char index.
+    pub fn pos_to_char_idx_public(&self, p: Pos) -> usize {
+        self.pos_to_char_idx(p)
     }
 
     /// Number of lines in the buffer.

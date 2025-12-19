@@ -19,6 +19,12 @@ cd winpad && cargo build --release
 # Run
 ./target/release/kpad.exe [FILE]
 
+# Run tests
+cargo test
+
+# Run clippy (linting)
+cargo clippy
+
 # Global install/uninstall
 cargo install --path .
 cargo uninstall kpad
@@ -31,9 +37,9 @@ The editor is in `winpad/src/` with this structure:
 - **main.rs**: Entry point and main event loop (render -> read input -> update state)
 - **terminal.rs**: Raw mode + alternate screen setup via RAII (`TerminalGuard`)
 - **types.rs**: Core types: `Pos`, `LineEnding`, `EditOperation`, `UndoEntry`, `Prompt`, `HighlightColor`, `HighlightRule`, `HighlightSpan`
-- **buffer.rs**: Document model (`Vec<String>` of lines) with editing primitives
+- **buffer.rs**: Document model using `ropey::Rope` for O(log n) operations on large files (100k+ lines)
 - **commands.rs**: `CommandRegistry` for built-in and plugin commands with keymap resolution
-- **utils.rs**: UTF-8 helpers (`char_to_byte_index`, `byte_to_char_index`)
+- **utils.rs**: Digit counting, clamping, Levenshtein distance, plugin directory lookup
 
 ### editor/ module
 - **mod.rs**: `Editor` struct definition, state management, core methods
@@ -122,9 +128,13 @@ fn setup_highlights(api, path) {
 
 ## Development Guidelines
 
-**Avoid unused code**: Only add methods/functions that are actually called. Don't add "helper" methods speculatively. Rust's `#[warn(dead_code)]` will flag unused items. If you add a method, ensure it's used somewhere before committing.
+**Linting**: The project has strict lint settings in `Cargo.toml`:
+- `dead_code = "deny"` - Unused code is a compile error, not a warning
+- `clippy::all = "warn"` and `clippy::pedantic = "warn"` - Comprehensive linting
 
-**Run tests**: Use `cargo test` to run unit tests for `buffer.rs` and `utils.rs`. These cover UTF-8 index conversions, buffer operations, and edge cases with Unicode/emoji/CJK characters.
+Run `cargo clippy` before committing to catch issues. Never use `#[allow(dead_code)]` - if code isn't used, remove it.
+
+**Run tests**: Use `cargo test` to run unit tests for `buffer.rs` and `utils.rs`. These cover buffer operations and edge cases with Unicode/emoji/CJK characters.
 
 ## Architectural Notes
 

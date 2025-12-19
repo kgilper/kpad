@@ -4,12 +4,8 @@
         "default": {
             "keywords": "",
             "file_types": [
-                ".json",
-                ".md",
-                ".rhai",
                 ".rs",
-                ".toml",
-                "no extension"
+                ".toml"
             ],
             "exclude_files": "winpad\\Cargo.lock, instructions.md",
             "exclude_dirs": "",

@@ -3,10 +3,10 @@
 use crate::buffer::Buffer; // document model
 use crate::plugins::Hook; // plugin lifecycle hooks
 use crate::types::{Pos, Prompt, PromptKind}; // core types
-use crate::utils::{byte_to_char_index, char_to_byte_index}; // index conversion
 use super::Editor; // editor state
 use anyhow::{Context, Result}; // anyhow error handling
-use std::fs; // file system access
+use std::fs::{self, File}; // file system access and file handle
+use std::io::BufWriter; // buffered writing
 use std::mem; // memory manipulation
 use std::path::PathBuf; // file path handling
 use std::time::Duration; // timing for status messages
@@ -22,9 +22,13 @@ impl Editor {
     }
 
     /// Save the buffer to a specific path.
+    /// Uses streaming write to avoid allocating the entire file as a String.
     pub fn save_to_path(&mut self, path: PathBuf) -> Result<()> {
-        let content = self.buf.to_string();
-        fs::write(&path, content).with_context(|| format!("Failed writing {}", path.display()))?;
+        let file = File::create(&path)
+            .with_context(|| format!("Failed to create {}", path.display()))?;
+        let writer = BufWriter::new(file);
+        self.buf.write_to(writer)
+            .with_context(|| format!("Failed writing {}", path.display()))?;
         self.file_path = Some(path.clone());
         self.dirty = false;
         self.set_status(format!("Saved: {}", path.display()), Duration::from_secs(2));
@@ -83,37 +87,31 @@ impl Editor {
         Ok(())
     }
 
-    /// Search forward for query.
+    /// Search forward for query using optimized Rope traversal.
+    /// Avoids line-by-line iteration by searching through the entire text.
     pub fn search_forward(&self, query: &str, from: Pos, wrap: bool) -> Option<Pos> {
-        let mut y = from.y;
-        let mut x = from.x;
-
-        let find_in_line = |line: &str, start_char: usize| -> Option<usize> {
-            let b0 = char_to_byte_index(line, start_char);
-            let sub = &line[b0..];
-            let idx = sub.find(query)?;
-            Some(start_char + byte_to_char_index(sub, idx))
-        };
-
-        while y < self.buf.line_count() {
-            let line = self.buf.line(y);
-            if let Some(cx) = find_in_line(&line, x) {
-                return Some(Pos { y, x: cx });
-            }
-            y += 1;
-            x = 0;
+        if query.is_empty() {
+            return None;
         }
 
-        if !wrap { return None; }
+        // Convert starting position to char index
+        let start_idx = self.buf.pos_to_char_idx_public(from);
 
-        y = 0;
-        while y <= from.y && y < self.buf.line_count() {
-            let line = self.buf.line(y);
-            if let Some(cx) = find_in_line(&line, 0) {
-                return Some(Pos { y, x: cx });
-            }
-            y += 1;
+        // Search from cursor to end
+        if let Some(match_idx) = self.buf.search_from(query, start_idx) {
+            return Some(self.buf.char_idx_to_pos_public(match_idx));
         }
+
+        // Wrap around: search from beginning to cursor
+        if wrap && start_idx > 0 {
+            if let Some(match_idx) = self.buf.search_from(query, 0) {
+                // Only return if match is before original position
+                if match_idx < start_idx {
+                    return Some(self.buf.char_idx_to_pos_public(match_idx));
+                }
+            }
+        }
+
         None
     }
 }
