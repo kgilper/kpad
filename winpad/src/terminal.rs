@@ -1,14 +1,14 @@
 //! Terminal setup and teardown.
 
-use anyhow::{Context, Result};
-use crossterm::{
+use anyhow::{Context, Result}; // anyhow error handling
+use crossterm::{ // terminal manipulation
     cursor,
     event::{EnableMouseCapture, DisableMouseCapture},
     style,
     terminal::{self, ClearType},
     ExecutableCommand,
 };
-use std::io::{self, Stdout, Write};
+use std::io::{self, Stdout, Write}; // standard io traits and types
 
 /// RAII guard for terminal state.
 ///

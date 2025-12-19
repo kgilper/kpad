@@ -1,6 +1,6 @@
 //! Utility functions.
 
-use std::cmp::min;
+use std::cmp::min; // comparison helpers
 
 /// Convert a "character index" to a "byte index" in a UTF‑8 string.
 ///

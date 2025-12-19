@@ -1,10 +1,10 @@
 //! Cursor movement and boundary detection.
 
-use crate::types::Pos;
-use super::Editor;
-use anyhow::Result;
-use crossterm::{event::{KeyCode, KeyEvent, KeyModifiers}, terminal};
-use std::cmp::min;
+use crate::types::Pos; // document position type
+use super::Editor; // main editor logic
+use anyhow::Result; // anyhow error handling
+use crossterm::{event::{KeyCode, KeyEvent, KeyModifiers}, terminal}; // terminal events and manipulation
+use std::cmp::min; // comparison helpers
 
 impl Editor {
     /// Move the cursor in response to a movement key.

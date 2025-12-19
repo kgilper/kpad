@@ -1,6 +1,6 @@
 //! Common types used throughout the editor.
 
-use std::time::Instant;
+use std::time::Instant; // timing for status messages and quit hints
 
 /// A position in the document.
 ///

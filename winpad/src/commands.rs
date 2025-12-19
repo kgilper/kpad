@@ -1,9 +1,9 @@
 //! Command registry and command execution system.
 
-use crate::editor::Editor;
-use crate::utils::levenshtein_distance;
-use anyhow::Result;
-use std::collections::HashMap;
+use crate::editor::Editor; // main editor state
+use crate::utils::levenshtein_distance; // string distance for suggestions
+use anyhow::Result; // anyhow error handling
+use std::collections::HashMap; // dictionary data structure
 
 /// Where a command comes from: built-in Rust function or plugin function.
 #[derive(Clone)]

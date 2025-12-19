@@ -1,8 +1,8 @@
 //! Undo/redo operations.
 
-use crate::types::{EditOperation, UndoEntry};
-use super::Editor;
-use anyhow::Result;
+use crate::types::{EditOperation, UndoEntry}; // undo/redo types
+use super::Editor; // main editor logic
+use anyhow::Result; // anyhow error handling
 
 impl Editor {
     /// Record an edit for undo.

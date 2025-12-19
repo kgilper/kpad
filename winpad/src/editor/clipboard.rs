@@ -1,9 +1,9 @@
 //! Clipboard operations: copy, cut, paste.
 
-use crate::types::EditOperation;
-use super::Editor;
-use anyhow::Result;
-use std::time::Duration;
+use crate::types::EditOperation; // document edit operations
+use super::Editor; // main editor logic
+use anyhow::Result; // anyhow error handling
+use std::time::Duration; // timing for status messages
 
 impl Editor {
     /// Copy to clipboard.

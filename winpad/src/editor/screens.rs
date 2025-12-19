@@ -1,15 +1,15 @@
 //! Full-screen overlays: help screen, statistics screen.
 
-use crate::types::DocumentStats;
-use super::Editor;
-use anyhow::Result;
-use crossterm::{
+use crate::types::DocumentStats; // document statistics type
+use super::Editor; // main editor state
+use anyhow::Result; // anyhow error handling
+use crossterm::{ // terminal manipulation
     cursor,
     style::{self, Color},
     terminal::{self, ClearType},
     QueueableCommand,
 };
-use std::io::{Stdout, Write};
+use std::io::{Stdout, Write}; // output handling
 
 impl Editor {
     /// Calculate document statistics.

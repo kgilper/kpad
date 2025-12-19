@@ -1,15 +1,15 @@
 //! File operations: open, save, search.
 
-use crate::buffer::Buffer;
-use crate::plugins::Hook;
-use crate::types::{Pos, Prompt, PromptKind};
-use crate::utils::{byte_to_char_index, char_to_byte_index};
-use super::Editor;
-use anyhow::{Context, Result};
-use std::fs;
-use std::mem;
-use std::path::PathBuf;
-use std::time::Duration;
+use crate::buffer::Buffer; // document model
+use crate::plugins::Hook; // plugin lifecycle hooks
+use crate::types::{Pos, Prompt, PromptKind}; // core types
+use crate::utils::{byte_to_char_index, char_to_byte_index}; // index conversion
+use super::Editor; // editor state
+use anyhow::{Context, Result}; // anyhow error handling
+use std::fs; // file system access
+use std::mem; // memory manipulation
+use std::path::PathBuf; // file path handling
+use std::time::Duration; // timing for status messages
 
 impl Editor {
     /// Save the buffer.

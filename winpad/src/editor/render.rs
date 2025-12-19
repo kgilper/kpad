@@ -1,19 +1,19 @@
 //! Rendering: drawing the editor UI to the terminal.
 
-use crate::types::PromptKind;
-use crate::utils::digits;
-use super::highlight::highlight_to_crossterm;
-use super::Editor;
-use anyhow::Result;
-use crossterm::{
+use crate::types::PromptKind; // prompt types
+use crate::utils::digits; // digit counting helper
+use super::highlight::highlight_to_crossterm; // highlight color conversion
+use super::Editor; // editor state
+use anyhow::Result; // anyhow error handling
+use crossterm::{ // terminal manipulation
     cursor,
     style::{self, Attribute, Color},
     terminal::{self, ClearType},
     QueueableCommand,
 };
-use std::cmp::max;
-use std::io::{Stdout, Write};
-use unicode_width::UnicodeWidthChar;
+use std::cmp::max; // comparison helpers
+use std::io::{Stdout, Write}; // output handling
+use unicode_width::UnicodeWidthChar; // character width handling
 
 impl Editor {
     /// Render the entire UI.

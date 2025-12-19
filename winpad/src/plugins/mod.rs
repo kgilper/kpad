@@ -1,16 +1,16 @@
 //! Plugin system: loads Rhai scripts from `plugins/*/plugin.toml` and provides a safe API.
 
-mod api;
+mod api; // plugin api for rhai scripts
 
-pub use api::PluginApi;
+pub use api::PluginApi; // expose the api type
 
-use crate::commands::{Command, CommandRegistry, CommandSource};
-use crate::editor::Editor;
-use anyhow::{anyhow, Context, Result};
-use serde::Deserialize;
-use std::fs;
-use std::path::PathBuf;
-use std::time::Duration;
+use crate::commands::{Command, CommandRegistry, CommandSource}; // command system
+use crate::editor::Editor; // editor state
+use anyhow::{anyhow, Context, Result}; // anyhow error handling
+use serde::Deserialize; // trait for deserializing toml
+use std::fs; // file system access
+use std::path::PathBuf; // file path handling
+use std::time::Duration; // timing for status messages
 
 /// Optional lifecycle hooks that plugins may implement.
 #[derive(Debug, Clone, Copy)]

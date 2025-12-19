@@ -1,28 +1,28 @@
 //! Editor: the main application state and all editing operations.
 
-mod builtin_commands;
-mod clipboard;
-mod file_ops;
-pub mod highlight;
-mod input;
-mod movement;
-mod render;
-mod screens;
-mod undo;
+mod builtin_commands; // built-in command registration
+mod clipboard; // clipboard operations
+mod file_ops; // open, save, search
+pub mod highlight; // syntax highlighting
+mod input; // keyboard, mouse, prompt handling
+mod movement; // cursor movement
+mod render; // terminal rendering
+mod screens; // help and stats overlays
+mod undo; // undo/redo operations
 
-use crate::buffer::Buffer;
-use crate::commands::{CommandRegistry, CommandSource};
-use crate::plugins::{Hook, PluginManager};
-use crate::types::{LineEnding, Pos, Prompt, StatusMsg, UndoEntry};
-use crate::utils::{char_to_byte_index, default_plugin_dirs, digits};
-use anyhow::{Context, Result};
-use crossterm::terminal;
-use std::cmp::max;
-use std::fs;
-use std::mem;
-use std::path::PathBuf;
-use std::time::{Duration, Instant};
-use unicode_width::UnicodeWidthChar;
+use crate::buffer::Buffer; // document model
+use crate::commands::{CommandRegistry, CommandSource}; // command system
+use crate::plugins::{Hook, PluginManager}; // plugin system
+use crate::types::{LineEnding, Pos, Prompt, StatusMsg, UndoEntry}; // core types
+use crate::utils::{char_to_byte_index, default_plugin_dirs, digits}; // utility functions
+use anyhow::{Context, Result}; // anyhow error handling
+use crossterm::terminal; // terminal manipulation
+use std::cmp::max; // comparison helpers
+use std::fs; // file system access
+use std::mem; // memory manipulation
+use std::path::PathBuf; // file path handling
+use std::time::{Duration, Instant}; // timing
+use unicode_width::UnicodeWidthChar; // character width handling
 
 pub use builtin_commands::register_builtin_commands;
 pub use highlight::Highlighter;

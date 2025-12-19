@@ -10,12 +10,12 @@
 //!   - the editor is single-threaded
 //!   - `PluginApi` is only used during the call where the `Editor` reference is alive
 
-use crate::buffer::Buffer;
-use crate::editor::Editor;
-use crate::types::{HighlightColor, HighlightRule, Pos};
-use crate::utils::clamp_usize_i64;
-use std::cmp::min;
-use std::time::Duration;
+use crate::buffer::Buffer; // document model
+use crate::editor::Editor; // editor state
+use crate::types::{HighlightColor, HighlightRule, Pos}; // core types
+use crate::utils::clamp_usize_i64; // utility functions
+use std::cmp::min; // comparison helpers
+use std::time::Duration; // timing for status messages
 
 /// API wrapper passed to Rhai scripts.
 #[derive(Clone)]

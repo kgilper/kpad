@@ -11,20 +11,33 @@
 //! - **Plugins**: loaded from `./plugins/*/plugin.toml` + Rhai scripts; they register commands
 //!   and can modify editor state through **`plugins::PluginApi`**.
 
+// the buffer module contains the document model (a `Vec<String>` of lines) and the low-level editing
 mod buffer;
+
+// the commands module contains the command registry and command handling
 mod commands;
+
+// the editor module contains the application state + key handling + rendering + prompts + undo/redo
 mod editor;
+
+// the plugins module contains the plugin manager and plugin api
 mod plugins;
+
+// the terminal module contains the terminal guard and terminal setup
 mod terminal;
+
+// the types module contains the core types
 mod types;
+
+// the utils module contains the utf-8 helpers
 mod utils;
 
-use anyhow::Result;
-use crossterm::event::{self, Event, KeyEventKind};
-use editor::Editor;
-use std::io;
-use std::time::Duration;
-use terminal::TerminalGuard;
+use anyhow::Result; // anyhow error handling
+use crossterm::event::{self, Event, KeyEventKind}; // terminal events
+use editor::Editor; // main editor state and logic
+use std::io; // standard input/output
+use std::time::Duration; // timing for events and polling
+use terminal::TerminalGuard; // raii terminal mode guard
 
 /// Program entry point.
 ///

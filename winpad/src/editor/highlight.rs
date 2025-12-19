@@ -1,9 +1,9 @@
 //! Syntax highlighting system for plugin-registered rules.
 
-use crate::types::{HighlightColor, HighlightRule, HighlightSpan};
-use crossterm::style::Color;
-use regex::Regex;
-use std::collections::HashMap;
+use crate::types::{HighlightColor, HighlightRule, HighlightSpan}; // syntax highlighting types
+use crossterm::style::Color; // terminal colors
+use regex::Regex; // regex pattern matching
+use std::collections::HashMap; // dictionary data structure
 
 /// Convert a HighlightColor to a crossterm Color.
 pub fn highlight_to_crossterm(color: HighlightColor) -> Color {

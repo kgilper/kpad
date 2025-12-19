@@ -1,15 +1,15 @@
 //! Input handling: keyboard, mouse, and prompt events.
 
-use crate::commands::canonical_key_string;
-use crate::types::{EditOperation, Pos, Prompt, PromptKind};
-use crate::utils::clamp_usize;
-use super::Editor;
-use anyhow::Result;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
-use std::cmp::min;
-use std::fs;
-use std::path::Path;
-use std::time::{Duration, Instant};
+use crate::commands::canonical_key_string; // canonical key representation
+use crate::types::{EditOperation, Pos, Prompt, PromptKind}; // core types
+use crate::utils::clamp_usize; // comparison helpers
+use super::Editor; // editor state
+use anyhow::Result; // anyhow error handling
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind}; // terminal events
+use std::cmp::min; // comparison helpers
+use std::fs; // file system access
+use std::path::Path; // file path handling
+use std::time::{Duration, Instant}; // timing
 
 /// Get path completions for a partial path.
 /// Returns a sorted list of matching paths (directories first, with trailing `/`).

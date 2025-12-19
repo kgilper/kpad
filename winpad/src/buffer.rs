@@ -1,8 +1,8 @@
 //! The document buffer: stores lines of text and provides editing operations.
 
-use crate::types::{LineEnding, Pos};
-use crate::utils::char_to_byte_index;
-use std::cmp::min;
+use crate::types::{LineEnding, Pos}; // core editor types
+use crate::utils::char_to_byte_index; // utf-8 index conversion
+use std::cmp::min; // comparison helpers
 
 /// The document buffer: a list of lines (each line is a `String`).
 ///
