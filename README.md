@@ -28,7 +28,7 @@ A fast, lightweight terminal text editor written in Rust. Designed for Windows t
 ### Build from source
 
 ```bash
-cd winpad
+cd kpad
 cargo build --release
 ```
 
@@ -117,7 +117,7 @@ kpad src/main.rs
 ## Project Structure
 
 ```
-winpad/
+kpad/
 ├── Cargo.toml          # Dependencies and lint configuration
 ├── src/
 │   ├── main.rs         # Entry point, event loop

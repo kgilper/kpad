@@ -1,12 +1,30 @@
-# Build artifacts
-winpad/target/
+# Rust build artifacts
+kpad/target/
 
-# IDE
+# Binary artifacts
+*.exe
+*.dll
+*.pdb
+*.so
+*.dylib
+
+# IDE and editors
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
+*.rs.bk
 
-# OS
+# OS-specific
 .DS_Store
 Thumbs.db
+
+# AI & tooling
+.cursor/
+.history/
+
+# Local/temporary
+*.log
+.env
+.env.local

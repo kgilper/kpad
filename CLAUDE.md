@@ -13,8 +13,8 @@ kpad is a Notepad-like terminal text editor for Windows (PowerShell, cmd.exe, Wi
 ## Build Commands
 
 ```bash
-# Build (from winpad directory)
-cd winpad && cargo build --release
+# Build (from kpad directory)
+cd kpad && cargo build --release
 
 # Run
 ./target/release/kpad.exe [FILE]
