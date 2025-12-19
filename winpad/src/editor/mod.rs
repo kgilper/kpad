@@ -14,7 +14,7 @@ use crate::buffer::Buffer; // document model
 use crate::commands::{CommandRegistry, CommandSource}; // command system
 use crate::plugins::{Hook, PluginManager}; // plugin system
 use crate::types::{LineEnding, Pos, Prompt, StatusMsg, UndoEntry}; // core types
-use crate::utils::{char_to_byte_index, default_plugin_dirs, digits}; // utility functions
+use crate::utils::{default_plugin_dirs, digits}; // utility functions
 use anyhow::{Context, Result}; // anyhow error handling
 use crossterm::terminal; // terminal manipulation
 use std::cmp::max; // comparison helpers
@@ -205,29 +205,7 @@ impl Editor {
     /// Extract the selected text.
     pub fn selected_text(&self) -> String {
         let Some((a, b)) = self.selection_range() else { return String::new(); };
-        if a.y == b.y {
-            let line = &self.buf.lines[a.y];
-            let b0 = char_to_byte_index(line, a.x);
-            let b1 = char_to_byte_index(line, b.x);
-            return line[b0..b1].to_string();
-        }
-        let mut out = String::new();
-        {
-            let line = &self.buf.lines[a.y];
-            let b0 = char_to_byte_index(line, a.x);
-            out.push_str(&line[b0..]);
-            out.push('\n');
-        }
-        for y in (a.y + 1)..b.y {
-            out.push_str(&self.buf.lines[y]);
-            out.push('\n');
-        }
-        {
-            let line = &self.buf.lines[b.y];
-            let b1 = char_to_byte_index(line, b.x);
-            out.push_str(&line[..b1]);
-        }
-        out
+        self.buf.get_range(a, b)
     }
 
     /// Delete the current selection.
@@ -275,7 +253,8 @@ impl Editor {
         let avail = width.saturating_sub(gutter);
 
         let mut cursor_screen_row = 0;
-        for (i, line) in self.buf.lines.iter().enumerate() {
+        for i in 0..self.buf.line_count() {
+            let line = self.buf.line(i);
             if i == self.cursor.y {
                 let mut current_col = 0;
                 let mut seg_idx = 0;
@@ -328,7 +307,7 @@ impl Editor {
         let gutter = lnw + 2;
         let avail = width.saturating_sub(gutter).saturating_sub(1);
 
-        let line = &self.buf.lines[self.cursor.y];
+        let line = self.buf.line(self.cursor.y);
         let cursor_col: usize = line.chars().take(self.cursor.x)
             .map(|ch| UnicodeWidthChar::width(ch).unwrap_or(1)).sum();
         let scroll_col: usize = line.chars().take(self.scroll_x)

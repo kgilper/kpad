@@ -19,7 +19,8 @@ impl Editor {
         let mut byte_count = 0;
         let mut histogram = vec![0; 10];
 
-        for line in &self.buf.lines {
+        for y in 0..self.buf.line_count() {
+            let line = self.buf.line(y);
             char_count += line.chars().count();
             byte_count += line.len();
             word_count += line.split_whitespace().count();

@@ -14,7 +14,6 @@ use crate::buffer::Buffer; // document model
 use crate::editor::Editor; // editor state
 use crate::types::{HighlightColor, HighlightRule, Pos}; // core types
 use crate::utils::clamp_usize_i64; // utility functions
-use std::cmp::min; // comparison helpers
 use std::time::Duration; // timing for status messages
 
 /// API wrapper passed to Rhai scripts.
@@ -99,15 +98,15 @@ impl PluginApi {
 
     /// Get the full text of the current line.
     pub fn current_line_text(&mut self) -> String {
-        self.with_editor(|ed| ed.buf.lines.get(ed.cursor.y).cloned().unwrap_or_default())
+        self.with_editor(|ed| ed.buf.line(ed.cursor.y).to_string())
     }
 
     /// Replace the current line with `s`.
     pub fn set_current_line_text(&mut self, s: String) {
         self.with_editor(|ed| {
-            if ed.cursor.y < ed.buf.lines.len() {
-                ed.buf.lines[ed.cursor.y] = s;
-                ed.cursor.x = min(ed.cursor.x, ed.buf.line_len_chars(ed.cursor.y));
+            if ed.cursor.y < ed.buf.line_count() {
+                ed.buf.set_line(ed.cursor.y, &s);
+                ed.cursor.x = ed.cursor.x.min(ed.buf.line_len_chars(ed.cursor.y));
                 ed.dirty = true;
             }
         })

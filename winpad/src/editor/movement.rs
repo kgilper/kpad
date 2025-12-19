@@ -115,7 +115,7 @@ impl Editor {
         let line_count = self.buf.line_count();
         if p.y + 1 < line_count {
             let next_y = p.y + 1;
-            let line = &self.buf.lines[next_y];
+            let line = self.buf.line(next_y);
             let chars: Vec<char> = line.chars().collect();
 
             // Find first non-whitespace character on the next line
@@ -133,7 +133,7 @@ impl Editor {
     fn move_to_prev_line_boundary(&self, p: Pos) -> Pos {
         if p.y > 0 {
             let prev_y = p.y - 1;
-            let line = &self.buf.lines[prev_y];
+            let line = self.buf.line(prev_y);
             let chars: Vec<char> = line.chars().collect();
 
             // Find first non-whitespace character on the previous line
@@ -152,7 +152,7 @@ impl Editor {
         let line_count = self.buf.line_count();
         if p.y >= line_count { return p; }
 
-        let line = &self.buf.lines[p.y];
+        let line = self.buf.line(p.y);
         let chars: Vec<char> = line.chars().collect();
 
         if p.x >= chars.len() {
@@ -194,7 +194,7 @@ impl Editor {
             return p;
         }
 
-        let line = &self.buf.lines[p.y];
+        let line = self.buf.line(p.y);
         let chars: Vec<char> = line.chars().collect();
         let mut i = p.x - 1;
 

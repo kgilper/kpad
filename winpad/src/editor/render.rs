@@ -110,7 +110,7 @@ impl Editor {
             self.render_line_content(stdout, y, avail, base_bg)?;
 
             if is_current_line {
-                let line = &self.buf.lines[y];
+                let line = self.buf.line(y);
                 let chars: Vec<char> = line.chars().skip(self.scroll_x).collect();
                 let col_used: usize = chars.iter().take_while(|_| true)
                     .map(|ch| UnicodeWidthChar::width(*ch).unwrap_or(1))
@@ -136,7 +136,7 @@ impl Editor {
 
         let line_count = self.buf.line_count();
         for line_idx in 0..line_count {
-            let line = self.buf.lines[line_idx].clone();
+            let line = self.buf.line(line_idx).to_string();
             let segments = self.calculate_wrap_segments(&line, avail);
 
             for (seg_idx, &start_char_idx) in segments.iter().enumerate() {
@@ -238,7 +238,7 @@ impl Editor {
     }
 
     fn render_line_content(&mut self, stdout: &mut Stdout, y: usize, avail: usize, base_bg: Option<Color>) -> Result<()> {
-        let line = self.buf.lines[y].clone();
+        let line = self.buf.line(y).to_string();
         let sel = self.selection_range();
 
         // Get syntax highlights for this line
@@ -367,8 +367,8 @@ impl Editor {
         if self.word_wrap {
             let mut current_screen_row = 0;
             for line_idx in 0..self.buf.line_count() {
-                let line = &self.buf.lines[line_idx];
-                let segments = self.calculate_wrap_segments(line, avail);
+                let line = self.buf.line(line_idx);
+                let segments = self.calculate_wrap_segments(&line, avail);
                 if line_idx == self.cursor.y {
                     let mut seg_idx = 0;
                     for (i, &start) in segments.iter().enumerate() { if self.cursor.x >= start { seg_idx = i; } else { break; } }
@@ -382,7 +382,7 @@ impl Editor {
             Ok((gutter, 0))
         } else {
             let cursor_row = self.cursor.y.saturating_sub(self.scroll_y);
-            let line = &self.buf.lines[self.cursor.y];
+            let line = self.buf.line(self.cursor.y);
             let col: usize = line.chars().skip(self.scroll_x).take(self.cursor.x.saturating_sub(self.scroll_x)).map(|ch| UnicodeWidthChar::width(ch).unwrap_or(1)).sum();
             Ok((gutter + col, cursor_row))
         }

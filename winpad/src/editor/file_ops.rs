@@ -96,8 +96,8 @@ impl Editor {
         };
 
         while y < self.buf.line_count() {
-            let line = &self.buf.lines[y];
-            if let Some(cx) = find_in_line(line, x) {
+            let line = self.buf.line(y);
+            if let Some(cx) = find_in_line(&line, x) {
                 return Some(Pos { y, x: cx });
             }
             y += 1;
@@ -108,8 +108,8 @@ impl Editor {
 
         y = 0;
         while y <= from.y && y < self.buf.line_count() {
-            let line = &self.buf.lines[y];
-            if let Some(cx) = find_in_line(line, 0) {
+            let line = self.buf.line(y);
+            if let Some(cx) = find_in_line(&line, 0) {
                 return Some(Pos { y, x: cx });
             }
             y += 1;

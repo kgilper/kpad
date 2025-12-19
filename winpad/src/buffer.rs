@@ -1,23 +1,25 @@
-//! The document buffer: stores lines of text and provides editing operations.
+//! The document buffer: stores text using a Rope for O(log n) operations on large files.
 
-use crate::types::{LineEnding, Pos}; // core editor types
-use crate::utils::char_to_byte_index; // utf-8 index conversion
-use std::cmp::min; // comparison helpers
+use crate::types::{LineEnding, Pos};
+use ropey::Rope;
+use std::borrow::Cow;
 
-/// The document buffer: a list of lines (each line is a `String`).
+/// The document buffer using a Rope data structure.
 ///
-/// This is intentionally simple: for a production editor you'd use a rope or piece table for
-/// better performance on large files, but for this project a `Vec<String>` is fine.
+/// A Rope provides O(log n) insert/delete operations, making it suitable for
+/// files with 100,000+ lines. This replaces the previous Vec<String> implementation.
 pub struct Buffer {
-    pub lines: Vec<String>,
+    /// The text content stored as a Rope.
+    pub text: Rope,
+    /// Line ending style for this buffer.
     pub line_ending: LineEnding,
 }
 
 impl Buffer {
     /// Create a new empty buffer with a single empty line and default to LF.
     pub fn new() -> Self {
-        Self { 
-            lines: vec![String::new()],
+        Self {
+            text: Rope::new(),
             line_ending: LineEnding::LF,
         }
     }
@@ -31,88 +33,138 @@ impl Buffer {
             LineEnding::LF
         };
 
-        let mut lines: Vec<String> = s
-            .split('\n')
-            .map(|l| l.trim_end_matches('\r').to_string())
-            .collect();
-            
-        if lines.is_empty() {
-            lines.push(String::new());
-        }
-        
-        Self { lines, line_ending }
+        // Normalize to LF internally, store CRLF preference for saving
+        let normalized = s.replace("\r\n", "\n");
+        let text = Rope::from_str(&normalized);
+
+        Self { text, line_ending }
     }
 
     /// Serialize the buffer for saving to disk, using the detected line ending.
     pub fn to_string(&self) -> String {
-        self.lines.join(self.line_ending.as_str())
+        let s: String = self.text.chars().collect();
+        if self.line_ending == LineEnding::CRLF {
+            s.replace('\n', "\r\n")
+        } else {
+            s
+        }
     }
 
+    /// Number of lines in the buffer.
     pub fn line_count(&self) -> usize {
-        self.lines.len()
+        // Rope counts trailing newline as an extra line, adjust for consistency
+        let len = self.text.len_lines();
+        if len == 0 { 1 } else { len }
     }
 
+    /// Get the character count of a specific line (excluding newline).
     pub fn line_len_chars(&self, y: usize) -> usize {
-        self.lines.get(y).map(|l| l.chars().count()).unwrap_or(0)
+        if y >= self.text.len_lines() {
+            return 0;
+        }
+        let line = self.text.line(y);
+        // Exclude trailing newline from count
+        let len = line.len_chars();
+        if len > 0 && line.char(len - 1) == '\n' {
+            len - 1
+        } else {
+            len
+        }
+    }
+
+    /// Get the text of a specific line (without trailing newline).
+    pub fn line(&self, y: usize) -> Cow<'_, str> {
+        if y >= self.text.len_lines() {
+            return Cow::Borrowed("");
+        }
+        let line = self.text.line(y);
+        let s: String = line.chars().collect();
+        // Remove trailing newline
+        Cow::Owned(s.trim_end_matches('\n').to_string())
+    }
+
+    /// Replace the content of a specific line.
+    pub fn set_line(&mut self, y: usize, content: &str) {
+        if y >= self.line_count() {
+            return;
+        }
+        let start = self.text.line_to_char(y);
+        let old_len = self.line_len_chars(y);
+        // Remove old content (but not the newline if it exists)
+        if old_len > 0 {
+            self.text.remove(start..start + old_len);
+        }
+        // Insert new content
+        self.text.insert(start, content);
     }
 
     /// Clamp a position to a valid line and a valid column within that line.
     pub fn clamp_pos(&self, mut p: Pos) -> Pos {
-        if self.lines.is_empty() {
+        let line_count = self.line_count();
+        if line_count == 0 {
             return Pos { y: 0, x: 0 };
         }
-        p.y = min(p.y, self.lines.len().saturating_sub(1));
-        p.x = min(p.x, self.line_len_chars(p.y));
+        p.y = p.y.min(line_count.saturating_sub(1));
+        p.x = p.x.min(self.line_len_chars(p.y));
         p
+    }
+
+    /// Convert a Pos (line, char) to a global char index in the Rope.
+    fn pos_to_char_idx(&self, p: Pos) -> usize {
+        if p.y >= self.text.len_lines() {
+            return self.text.len_chars();
+        }
+        let line_start = self.text.line_to_char(p.y);
+        let line_len = self.line_len_chars(p.y);
+        line_start + p.x.min(line_len)
+    }
+
+    /// Convert a global char index to a Pos (line, char).
+    fn char_idx_to_pos(&self, char_idx: usize) -> Pos {
+        let char_idx = char_idx.min(self.text.len_chars());
+        let y = self.text.char_to_line(char_idx);
+        let line_start = self.text.line_to_char(y);
+        let x = char_idx - line_start;
+        Pos { y, x }
     }
 
     /// Insert a single character at a position, returning the new cursor position.
     pub fn insert_char(&mut self, p: Pos, ch: char) -> Pos {
-        let y = p.y;
-        let x = p.x;
-        if y >= self.lines.len() {
-            self.lines.push(String::new());
+        let idx = self.pos_to_char_idx(p);
+        self.text.insert_char(idx, ch);
+        if ch == '\n' {
+            Pos { y: p.y + 1, x: 0 }
+        } else {
+            Pos { y: p.y, x: p.x + 1 }
         }
-        let line = &mut self.lines[y];
-        let bi = char_to_byte_index(line, x);
-        line.insert(bi, ch);
-        Pos { y, x: x + 1 }
     }
 
     /// Insert a newline at a position, splitting the current line in two.
     pub fn insert_newline(&mut self, p: Pos) -> Pos {
-        let y = p.y;
-        let x = p.x;
-        let line = &mut self.lines[y];
-        let bi = char_to_byte_index(line, x);
-        let rest = line.split_off(bi);
-        self.lines.insert(y + 1, rest);
-        Pos { y: y + 1, x: 0 }
+        self.insert_char(p, '\n')
     }
 
     /// Backspace behavior:
     /// - If `x > 0`, delete the previous character.
     /// - If at start of line (`x == 0`) and not the first line, merge with previous line.
     pub fn delete_backspace(&mut self, p: Pos) -> Pos {
-        let y = p.y;
-        let x = p.x;
-        if y >= self.lines.len() {
-            return Pos { y: 0, x: 0 };
+        let idx = self.pos_to_char_idx(p);
+        if idx == 0 {
+            return p;
         }
-        if x > 0 {
-            let line = &mut self.lines[y];
-            let bi = char_to_byte_index(line, x - 1);
-            line.remove(bi);
-            Pos { y, x: x - 1 }
-        } else if y > 0 {
-            // merge with previous line
-            let cur = self.lines.remove(y);
-            let prev = &mut self.lines[y - 1];
-            let prev_len = prev.chars().count();
-            prev.push_str(&cur);
-            Pos { y: y - 1, x: prev_len }
+
+        // Check what character we're deleting
+        let prev_char = self.text.char(idx - 1);
+
+        if prev_char == '\n' {
+            // Merging with previous line - calculate new cursor pos before removal
+            let new_y = p.y.saturating_sub(1);
+            let new_x = self.line_len_chars(new_y);
+            self.text.remove(idx - 1..idx);
+            Pos { y: new_y, x: new_x }
         } else {
-            p
+            self.text.remove(idx - 1..idx);
+            Pos { y: p.y, x: p.x - 1 }
         }
     }
 
@@ -120,25 +172,13 @@ impl Buffer {
     /// - If within the line, delete the character at the cursor.
     /// - If at end of line and there is a next line, merge with next line.
     pub fn delete_delete(&mut self, p: Pos) -> Pos {
-        let y = p.y;
-        let x = p.x;
-        if y >= self.lines.len() {
-            return Pos { y: 0, x: 0 };
+        let idx = self.pos_to_char_idx(p);
+        if idx >= self.text.len_chars() {
+            return p;
         }
-        let len = self.lines[y].chars().count();
-        if x < len {
-            let line = &mut self.lines[y];
-            let bi = char_to_byte_index(line, x);
-            line.remove(bi);
-            p
-        } else if y + 1 < self.lines.len() {
-            // merge with next line
-            let next = self.lines.remove(y + 1);
-            self.lines[y].push_str(&next);
-            p
-        } else {
-            p
-        }
+
+        self.text.remove(idx..idx + 1);
+        p
     }
 
     /// Extract a range of text as a string.
@@ -148,121 +188,35 @@ impl Buffer {
         }
         let (a, b) = if start <= end { (start, end) } else { (end, start) };
 
-        if a.y == b.y {
-            let line = &self.lines[a.y];
-            let b0 = char_to_byte_index(line, a.x);
-            let b1 = char_to_byte_index(line, b.x);
-            return line[b0..b1].to_string();
-        }
+        let start_idx = self.pos_to_char_idx(a);
+        let end_idx = self.pos_to_char_idx(b);
 
-        let mut out = String::new();
-        // first line
-        {
-            let line = &self.lines[a.y];
-            let b0 = char_to_byte_index(line, a.x);
-            out.push_str(&line[b0..]);
-            out.push('\n');
-        }
-        // middle lines
-        for y in (a.y + 1)..b.y {
-            out.push_str(&self.lines[y]);
-            out.push('\n');
-        }
-        // last line
-        {
-            let line = &self.lines[b.y];
-            let b1 = char_to_byte_index(line, b.x);
-            out.push_str(&line[..b1]);
-        }
-        out
+        self.text.slice(start_idx..end_idx).chars().collect()
     }
 
     /// Delete a (start, end) range and return the new cursor position (start of the range).
-    ///
-    /// This is used for "delete selection" and for cut/replace operations.
     pub fn delete_range(&mut self, start: Pos, end: Pos) -> Pos {
         if start == end {
             return start;
         }
         let (a, b) = if start <= end { (start, end) } else { (end, start) };
 
-        if a.y == b.y {
-            let line = &mut self.lines[a.y];
-            let b0 = char_to_byte_index(line, a.x);
-            let b1 = char_to_byte_index(line, b.x);
-            line.replace_range(b0..b1, "");
-            return a;
-        }
+        let start_idx = self.pos_to_char_idx(a);
+        let end_idx = self.pos_to_char_idx(b);
 
-        let end_suffix = {
-            let end_line = &self.lines[b.y];
-            let b_end = char_to_byte_index(end_line, b.x);
-            end_line[b_end..].to_string()
-        };
-
-        // truncate start line at a.x
-        {
-            let start_line = &mut self.lines[a.y];
-            let b_start = char_to_byte_index(start_line, a.x);
-            start_line.truncate(b_start);
-        }
-
-        // remove middle lines including original end line
-        self.lines.drain(a.y + 1..=b.y);
-
-        // append suffix
-        self.lines[a.y].push_str(&end_suffix);
-
-        if self.lines.is_empty() {
-            self.lines.push(String::new());
-            return Pos { y: 0, x: 0 };
-        }
-
+        self.text.remove(start_idx..end_idx);
         a
     }
 
     /// Insert a string at a position.
-    ///
-    /// The string may contain newlines; we split them into multiple lines.
+    /// The string may contain newlines; they are handled correctly.
     pub fn insert_str(&mut self, p: Pos, text: &str) -> Pos {
         let normalized = text.replace("\r\n", "\n");
-        let parts: Vec<&str> = normalized.split('\n').collect();
-        if parts.len() == 1 {
-            let mut pos = p;
-            for ch in parts[0].chars() {
-                pos = self.insert_char(pos, ch);
-            }
-            return pos;
-        }
+        let idx = self.pos_to_char_idx(p);
+        self.text.insert(idx, &normalized);
 
-        let y = p.y;
-        let x = p.x;
-
-        let suffix = {
-            let line = &mut self.lines[y];
-            let bi = char_to_byte_index(line, x);
-            line.split_off(bi)
-        };
-
-        // append first part
-        self.lines[y].push_str(parts[0]);
-
-        // insert middle lines
-        let mut insert_at = y + 1;
-        for mid in &parts[1..parts.len() - 1] {
-            self.lines.insert(insert_at, (*mid).to_string());
-            insert_at += 1;
-        }
-
-        // last line = last part + old suffix
-        let mut last = parts[parts.len() - 1].to_string();
-        last.push_str(&suffix);
-        self.lines.insert(insert_at, last);
-
-        Pos {
-            y: y + parts.len() - 1,
-            x: parts[parts.len() - 1].chars().count(),
-        }
+        // Calculate new position
+        self.char_idx_to_pos(idx + normalized.chars().count())
     }
 
     /// Calculate the end position if `text` was inserted at `p`.
@@ -286,34 +240,31 @@ mod tests {
     // ==================== Buffer creation tests ====================
 
     #[test]
-    fn new_buffer_has_one_empty_line() {
+    fn new_buffer_is_empty() {
         let buf = Buffer::new();
-        assert_eq!(buf.line_count(), 1);
-        assert_eq!(buf.lines[0], "");
+        assert_eq!(buf.text.len_chars(), 0);
         assert_eq!(buf.line_ending, LineEnding::LF);
     }
 
     #[test]
     fn from_string_empty() {
         let buf = Buffer::from_string("");
-        assert_eq!(buf.line_count(), 1);
-        assert_eq!(buf.lines[0], "");
+        assert_eq!(buf.text.len_chars(), 0);
     }
 
     #[test]
     fn from_string_single_line() {
         let buf = Buffer::from_string("hello world");
-        assert_eq!(buf.line_count(), 1);
-        assert_eq!(buf.lines[0], "hello world");
+        assert_eq!(buf.line(0).as_ref(), "hello world");
     }
 
     #[test]
     fn from_string_lf_lines() {
         let buf = Buffer::from_string("line1\nline2\nline3");
         assert_eq!(buf.line_count(), 3);
-        assert_eq!(buf.lines[0], "line1");
-        assert_eq!(buf.lines[1], "line2");
-        assert_eq!(buf.lines[2], "line3");
+        assert_eq!(buf.line(0).as_ref(), "line1");
+        assert_eq!(buf.line(1).as_ref(), "line2");
+        assert_eq!(buf.line(2).as_ref(), "line3");
         assert_eq!(buf.line_ending, LineEnding::LF);
     }
 
@@ -321,9 +272,9 @@ mod tests {
     fn from_string_crlf_lines() {
         let buf = Buffer::from_string("line1\r\nline2\r\nline3");
         assert_eq!(buf.line_count(), 3);
-        assert_eq!(buf.lines[0], "line1");
-        assert_eq!(buf.lines[1], "line2");
-        assert_eq!(buf.lines[2], "line3");
+        assert_eq!(buf.line(0).as_ref(), "line1");
+        assert_eq!(buf.line(1).as_ref(), "line2");
+        assert_eq!(buf.line(2).as_ref(), "line3");
         assert_eq!(buf.line_ending, LineEnding::CRLF);
     }
 
@@ -343,16 +294,15 @@ mod tests {
         let mut buf = Buffer::new();
         let pos = buf.insert_char(Pos { y: 0, x: 0 }, 'a');
         assert_eq!(pos, Pos { y: 0, x: 1 });
-        assert_eq!(buf.lines[0], "a");
+        assert_eq!(buf.line(0).as_ref(), "a");
     }
 
     #[test]
     fn insert_char_unicode() {
         let mut buf = Buffer::from_string("hllo");
-        // Insert 'é' at position 1 to make "héllo"
         let pos = buf.insert_char(Pos { y: 0, x: 1 }, 'é');
         assert_eq!(pos, Pos { y: 0, x: 2 });
-        assert_eq!(buf.lines[0], "héllo");
+        assert_eq!(buf.line(0).as_ref(), "héllo");
     }
 
     #[test]
@@ -360,7 +310,7 @@ mod tests {
         let mut buf = Buffer::from_string("ab");
         let pos = buf.insert_char(Pos { y: 0, x: 1 }, '😀');
         assert_eq!(pos, Pos { y: 0, x: 2 });
-        assert_eq!(buf.lines[0], "a😀b");
+        assert_eq!(buf.line(0).as_ref(), "a😀b");
     }
 
     #[test]
@@ -369,8 +319,8 @@ mod tests {
         let pos = buf.insert_newline(Pos { y: 0, x: 5 });
         assert_eq!(pos, Pos { y: 1, x: 0 });
         assert_eq!(buf.line_count(), 2);
-        assert_eq!(buf.lines[0], "hello");
-        assert_eq!(buf.lines[1], " world");
+        assert_eq!(buf.line(0).as_ref(), "hello");
+        assert_eq!(buf.line(1).as_ref(), " world");
     }
 
     #[test]
@@ -378,7 +328,7 @@ mod tests {
         let mut buf = Buffer::from_string("ac");
         let pos = buf.insert_str(Pos { y: 0, x: 1 }, "b");
         assert_eq!(pos, Pos { y: 0, x: 2 });
-        assert_eq!(buf.lines[0], "abc");
+        assert_eq!(buf.line(0).as_ref(), "abc");
     }
 
     #[test]
@@ -386,9 +336,9 @@ mod tests {
         let mut buf = Buffer::from_string("start end");
         let pos = buf.insert_str(Pos { y: 0, x: 6 }, "line1\nline2\nline3");
         assert_eq!(buf.line_count(), 3);
-        assert_eq!(buf.lines[0], "start line1");
-        assert_eq!(buf.lines[1], "line2");
-        assert_eq!(buf.lines[2], "line3end");
+        assert_eq!(buf.line(0).as_ref(), "start line1");
+        assert_eq!(buf.line(1).as_ref(), "line2");
+        assert_eq!(buf.line(2).as_ref(), "line3end");
         assert_eq!(pos.y, 2);
     }
 
@@ -399,16 +349,15 @@ mod tests {
         let mut buf = Buffer::from_string("abc");
         let pos = buf.delete_backspace(Pos { y: 0, x: 2 });
         assert_eq!(pos, Pos { y: 0, x: 1 });
-        assert_eq!(buf.lines[0], "ac");
+        assert_eq!(buf.line(0).as_ref(), "ac");
     }
 
     #[test]
     fn delete_backspace_unicode() {
         let mut buf = Buffer::from_string("héllo");
-        // Delete the 'é' (at char index 1)
         let pos = buf.delete_backspace(Pos { y: 0, x: 2 });
         assert_eq!(pos, Pos { y: 0, x: 1 });
-        assert_eq!(buf.lines[0], "hllo");
+        assert_eq!(buf.line(0).as_ref(), "hllo");
     }
 
     #[test]
@@ -417,7 +366,7 @@ mod tests {
         let pos = buf.delete_backspace(Pos { y: 1, x: 0 });
         assert_eq!(pos, Pos { y: 0, x: 5 });
         assert_eq!(buf.line_count(), 1);
-        assert_eq!(buf.lines[0], "line1line2");
+        assert_eq!(buf.line(0).as_ref(), "line1line2");
     }
 
     #[test]
@@ -425,7 +374,7 @@ mod tests {
         let mut buf = Buffer::from_string("abc");
         let pos = buf.delete_delete(Pos { y: 0, x: 1 });
         assert_eq!(pos, Pos { y: 0, x: 1 });
-        assert_eq!(buf.lines[0], "ac");
+        assert_eq!(buf.line(0).as_ref(), "ac");
     }
 
     #[test]
@@ -434,7 +383,7 @@ mod tests {
         let pos = buf.delete_delete(Pos { y: 0, x: 5 });
         assert_eq!(pos, Pos { y: 0, x: 5 });
         assert_eq!(buf.line_count(), 1);
-        assert_eq!(buf.lines[0], "line1line2");
+        assert_eq!(buf.line(0).as_ref(), "line1line2");
     }
 
     // ==================== Range operations tests ====================
@@ -458,7 +407,7 @@ mod tests {
         let mut buf = Buffer::from_string("hello world");
         let pos = buf.delete_range(Pos { y: 0, x: 5 }, Pos { y: 0, x: 11 });
         assert_eq!(pos, Pos { y: 0, x: 5 });
-        assert_eq!(buf.lines[0], "hello");
+        assert_eq!(buf.line(0).as_ref(), "hello");
     }
 
     #[test]
@@ -467,7 +416,7 @@ mod tests {
         let pos = buf.delete_range(Pos { y: 0, x: 3 }, Pos { y: 2, x: 1 });
         assert_eq!(pos, Pos { y: 0, x: 3 });
         assert_eq!(buf.line_count(), 1);
-        assert_eq!(buf.lines[0], "stand");
+        assert_eq!(buf.line(0).as_ref(), "stand");
     }
 
     // ==================== Unicode edge cases ====================
@@ -477,25 +426,21 @@ mod tests {
         let mut buf = Buffer::from_string("日本語");
         assert_eq!(buf.line_len_chars(0), 3);
 
-        // Insert at middle
         let pos = buf.insert_char(Pos { y: 0, x: 1 }, '中');
         assert_eq!(pos, Pos { y: 0, x: 2 });
-        assert_eq!(buf.lines[0], "日中本語");
+        assert_eq!(buf.line(0).as_ref(), "日中本語");
 
-        // Delete
         buf.delete_backspace(Pos { y: 0, x: 2 });
-        assert_eq!(buf.lines[0], "日本語");
+        assert_eq!(buf.line(0).as_ref(), "日本語");
     }
 
     #[test]
     fn clamp_pos_works() {
         let buf = Buffer::from_string("short\nlonger line");
 
-        // Beyond last line
         let p = buf.clamp_pos(Pos { y: 100, x: 0 });
         assert_eq!(p.y, 1);
 
-        // Beyond line length
         let p = buf.clamp_pos(Pos { y: 0, x: 100 });
         assert_eq!(p.x, 5);
     }
