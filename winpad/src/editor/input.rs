@@ -25,9 +25,15 @@ fn get_path_completions(partial: &str) -> Vec<String> {
         (path, "")
     } else {
         let parent = path.parent().unwrap_or(Path::new("."));
+        // Normalize empty parent to current directory
+        let parent = if parent.as_os_str().is_empty() { Path::new(".") } else { parent };
         let file_name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
         (parent, file_name)
     };
+
+    // Check if we're searching in the current directory implicitly
+    let is_current_dir = dir == Path::new(".") || dir.as_os_str().is_empty();
+    let has_explicit_prefix = partial.starts_with("./") || partial.starts_with(".\\");
 
     let mut completions = Vec::new();
 
@@ -43,7 +49,8 @@ fn get_path_completions(partial: &str) -> Vec<String> {
             let matches = name_str.starts_with(prefix);
 
             if matches {
-                let full_path = if dir == Path::new(".") && !partial.starts_with("./") {
+                // Don't prepend "./" unless user explicitly typed it
+                let full_path = if is_current_dir && !has_explicit_prefix {
                     name_str.to_string()
                 } else {
                     dir.join(&*name_str).to_string_lossy().to_string()
